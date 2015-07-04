@@ -16,5 +16,5 @@ public interface PvaClientMonitorRequester {
      * A monitor event has occurred.
      * @param monitor The EasyMonitor that trapped the event.
      */
-    void event(PvaClientMonitorRequester monitor);
+    void event(PvaClientMonitor monitor);
 }

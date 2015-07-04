@@ -10,12 +10,10 @@ PvaClientPutData.java
 PvaClientMonitorData.java
 PvaClientGet.java
 PvaClientPut.java
+PvaClientMonitor.java
+PvaClientMultiChannel.java
 
 TODO
-PvaClientMonitor.java
-PvaClientField.java
-PvaClientArray.java
-PvaClientMultiChannel.java
 PvaClientMultiData.java
 PvaClientMultiGet.java
 PvaClientMultiPut.java
@@ -23,4 +21,6 @@ PvaClientMultiMonitor.java
 PvaClientProcess.java
 PvaClientPutGet.java
 PvaClientRPC.java
+PvaClientField.java
+PvaClientArray.java
 TODO

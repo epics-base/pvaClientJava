@@ -6,13 +6,16 @@ package org.epics.pvaClient;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.epics.pvdata.property.*;
-import org.epics.pvdata.factory.*;
-import org.epics.pvdata.pv.*;
-import org.epics.pvdata.misc.*;
-import org.epics.pvdata.monitor.*;
-
-import org.epics.pvaccess.client.*;
+import org.epics.pvaccess.client.Channel;
+import org.epics.pvdata.factory.StatusFactory;
+import org.epics.pvdata.monitor.Monitor;
+import org.epics.pvdata.monitor.MonitorElement;
+import org.epics.pvdata.monitor.MonitorRequester;
+import org.epics.pvdata.pv.MessageType;
+import org.epics.pvdata.pv.PVStructure;
+import org.epics.pvdata.pv.Status;
+import org.epics.pvdata.pv.StatusCreate;
+import org.epics.pvdata.pv.Structure;
 
 
 
@@ -28,67 +31,61 @@ public class PvaClientMonitor implements MonitorRequester{
      * @return The interface.
      */
     static PvaClientMonitor create(
-            PvaClientChannel easyChannel,
+            PvaClientChannel pvaClientChannel,
             Channel channel,
             PVStructure pvRequest)
     {
-        return new PvaClientMonitor(easyChannel,channel,pvRequest);
+        return new PvaClientMonitor(pvaClientChannel,channel,pvRequest);
     }
 
     PvaClientMonitor(
-            PvaClientChannel easyChannel,
+            PvaClientChannel pvaClientChannel,
             Channel channel,
             PVStructure pvRequest)
             {
-        this.easyChannel = easyChannel;
+        this.pvaClientChannel = pvaClientChannel;
         this.channel = channel;
         this.pvRequest = pvRequest;
             }
 
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
 
-    private final PvaClientChannel easyChannel;
+    private enum MonitorConnectState {connectIdle,connectActive,connected,monitorStarted};
+    private final PvaClientChannel pvaClientChannel;
     private final Channel channel;
     private final PVStructure pvRequest;
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition waitForConnect = lock.newCondition();
+    private final Condition waitForEvent = lock.newCondition();
+
+    private PvaClientMonitorData pvaClientData = null;
 
     private volatile boolean isDestroyed = false;
-    private volatile Status status = statusCreate.getStatusOK();
+    private volatile Status connectStatus = statusCreate.getStatusOK();
     private volatile Monitor monitor = null;
     private volatile MonitorElement monitorElement = null;
-    private volatile PvaClientMonitorRequester easyRequester = null;
+    private volatile PvaClientMonitorRequester monitorRequester = null;
 
-    private enum ConnectState {connectIdle,notConnected,connected};
-    private volatile ConnectState connectState = ConnectState.connectIdle;
-    private volatile boolean waitingForConnect = false;
+    private volatile MonitorConnectState connectState = MonitorConnectState.connectIdle;
+    private volatile boolean userPoll = false;
+    private volatile boolean userWait = false;
 
-    private boolean checkConnected() {
-        if(connectState==ConnectState.connectIdle) connect();
-        if(connectState==ConnectState.connected) return true;
-        if(connectState==ConnectState.notConnected) {
-            String message = channel.getChannelName() + " monitor not connected";
-            Status status = statusCreate.createStatus(StatusType.ERROR, message, null);
-            setStatus(status);
-            return false;
-        }
-        String message = channel.getChannelName() + " illegal monitor state";
-        Status status = statusCreate.createStatus(StatusType.ERROR, message, null);
-        setStatus(status);
-        return false;
-
+    void checkMonitorState()
+    {
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        if(connectState==MonitorConnectState.connectIdle) connect();
+        if(connectState==MonitorConnectState.connected) start();
     }
-
-    private volatile boolean isStarted = false;
 
     @Override
     public String getRequesterName() {
-        return easyChannel.getChannelName();
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        return pvaClientChannel.getChannelName();
     }
     @Override
     public void message(String message, MessageType messageType) {
-        if(isDestroyed) return;
-        easyChannel.message(message, messageType);
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        pvaClientChannel.message(message, messageType);
     }
     @Override
     public void monitorConnect(
@@ -96,25 +93,31 @@ public class PvaClientMonitor implements MonitorRequester{
             Monitor monitor,
             Structure structure)
     {
-        if(isDestroyed) return;
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        connectStatus = status;
         this.monitor = monitor;
         if(!status.isSuccess()) {
-            setStatus(status);
-            connectState = ConnectState.notConnected;
-        } else {
-            connectState = ConnectState.connected;
+            pvaClientData = PvaClientMonitorData.create(structure);
+            pvaClientData.setMessagePrefix(channel.getChannelName());
         }
         lock.lock();
         try {
-            if(waitingForConnect) waitForConnect.signal();
+            waitForConnect.signal();
         } finally {
             lock.unlock();
         }
     }
     @Override
     public void monitorEvent(Monitor monitor) {
-        if(isDestroyed) return;
-        if(easyRequester!=null) easyRequester.event(this);
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        if(monitorRequester!=null) monitorRequester.event(this);
+        if(!userWait) return;
+        lock.lock();
+        try {
+            waitForEvent.signal();
+        } finally {
+            lock.unlock();
+        }
     }
     @Override
     public void unlisten(Monitor monitor) {
@@ -131,16 +134,22 @@ public class PvaClientMonitor implements MonitorRequester{
             isDestroyed = true;
         }
         if(monitor!=null) monitor.destroy();
+        monitor = null;
         monitorElement = null;
     }
     /**
      * call issueConnect and then waitConnect.
      * @return the result from waitConnect.
      */
-    boolean connect()
+    void connect()
     {
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
         issueConnect();
-        return waitConnect();
+        Status status =  waitConnect();
+        if(status.isOK()) return;
+        String message =  "channel " + channel.getChannelName()
+            + " PvaClientMonitor::connect " + status.getMessage();
+        throw new RuntimeException(message);
     }
     /**
      * create the monitor connection to the channel.
@@ -148,13 +157,13 @@ public class PvaClientMonitor implements MonitorRequester{
      */
     void issueConnect()
     {
-        if(isDestroyed) return;
-        if(connectState!=ConnectState.connectIdle) {
-            Status status = statusCreate.createStatus(
-                    StatusType.ERROR,"connect already issued",null);
-            setStatus(status);
-            return;
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        if(connectState!=MonitorConnectState.connectIdle) {
+            String message =  "channel " + channel.getChannelName() 
+                + " pvaClientMonitor already connected" ;
+            throw new RuntimeException(message);
         }
+        connectState = MonitorConnectState.connectActive;
         monitor = channel.createMonitor(this, pvRequest);
     }
     /**
@@ -162,27 +171,33 @@ public class PvaClientMonitor implements MonitorRequester{
      * If failure getStatus can be called to get reason.
      * @return (false,true) means (failure,success)
      */
-    boolean waitConnect()
+    Status waitConnect()
     {
-        if(isDestroyed) return false;
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        if(connectState!=MonitorConnectState.connectActive) {
+            String message =  "channel " + channel.getChannelName() 
+                 + " pvaClientMonitor illegal connect state ";
+            throw new RuntimeException(message);
+        }
         try {
             lock.lock();
             try {
-                waitingForConnect = true;
-                if(connectState==ConnectState.connectIdle) waitForConnect.await();
+                waitForConnect.await();
             } catch(InterruptedException e) {
-                Status status = statusCreate.createStatus(
-                        StatusType.ERROR,
-                        e.getMessage(),
-                        e.fillInStackTrace());
-                setStatus(status);
-                return false;
+                String message = "pvaClientMonitor channel "
+                        + channel.getChannelName() 
+                        + " InterruptedException " + e.getMessage();
+                throw new RuntimeException(message);
             }
         } finally {
             lock.unlock();
         }
-        if(connectState==ConnectState.notConnected) return false;
-        return true;
+        if(connectStatus.isOK()){
+            connectState = MonitorConnectState.connected;
+            return statusCreate.getStatusOK();
+        }
+        connectState = MonitorConnectState.connectIdle;
+        return connectStatus;
     }
 
     /**
@@ -191,7 +206,7 @@ public class PvaClientMonitor implements MonitorRequester{
      */
     void setRequester(PvaClientMonitorRequester requester)
     {
-        easyRequester = requester;
+        monitorRequester = requester;
     }
 
     /**
@@ -199,49 +214,46 @@ public class PvaClientMonitor implements MonitorRequester{
      * This will wait until the monitor is connected.
      * If false is returned then failure and getNessage will return reason.
      */
-    boolean start()
+    void start()
     {
-        if(!checkConnected()) return false;
-        if(isStarted) {
-            String message = channel.getChannelName() + "already started";
-            Status status = statusCreate.createStatus(StatusType.ERROR, message, null);
-            setStatus(status);
-            return false;
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        if(connectState==MonitorConnectState.monitorStarted) return;
+        if(connectState==MonitorConnectState.connectIdle) connect();
+        if(connectState!=MonitorConnectState.connected) {
+            throw new RuntimeException("PvaClientMonitor::start illegal state");
         }
-        isStarted = true;
-        monitorElement = null;
+        connectState = MonitorConnectState.monitorStarted;
         monitor.start();
-        return true;
     }
     /**
      * Stop monitoring.
      */
-    boolean stop()
+    void stop()
     {
-        if(!checkConnected()) return false;
-        if(isStarted) {
-            String message = channel.getChannelName() + "not started";
-            Status status = statusCreate.createStatus(StatusType.ERROR, message, null);
-            setStatus(status);
-            return false;
-        }
-        isStarted = false;
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        if(connectState!=MonitorConnectState.monitorStarted) return;
+        connectState = MonitorConnectState.connected;
         monitor.stop();
-        monitorElement = null;
-        return true;
     }
     /**
      * Get the data for the next monitor.
      * @return the next monitor or null if no new monitorElement are present.
      * If successful releaseEvent must be called before another call to poll.
      */
-    MonitorElement poll()
+    boolean poll()
     {
-        if(!isStarted) {
-            if(!start()) return null;
+        checkMonitorState();
+        if(connectState!=MonitorConnectState.monitorStarted) {
+            throw new RuntimeException("PvaClientMonitor::poll illegal state");
+        }
+        if(userPoll) {
+            throw new RuntimeException("PvaClientMonitor::polldid not release last ");
         }
         monitorElement = monitor.poll();
-        return monitorElement;
+        if(monitorElement==null) return false;
+        userPoll = true;
+        pvaClientData.setData(monitorElement);
+        return true;
     }
     /**
      * Wait for a monitor event.
@@ -251,22 +263,43 @@ public class PvaClientMonitor implements MonitorRequester{
      */
     boolean waitEvent(double secondsToWait)
     {
-        IMPLEMENT
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        if(connectState!=MonitorConnectState.monitorStarted) {
+            throw new RuntimeException("PvaClientMonitor::poll illegal state");
+        }
+        if(poll()) return true;
+        userWait = true;
+        try {
+            lock.lock();
+            try {
+                long nano = (long)(secondsToWait*1e9);
+                waitForEvent.awaitNanos(nano);
+            } catch(InterruptedException e) {
+                String message = "pvaClientMonitor::waitEvent channel "
+                        + channel.getChannelName() 
+                        + " InterruptedException " + e.getMessage();
+                throw new RuntimeException(message);
+            }
+        } finally {
+            lock.unlock();
+        }
+        userWait = false;
+        return poll();
     }
     /**
      * Release the monitorElement returned by poll.
      */
-    boolean releaseEvent()
+    void releaseEvent()
     {
-        if(monitorElement==null) {
-            String message = channel.getChannelName() + "no monitorElement";
-            Status status = statusCreate.createStatus(StatusType.ERROR, message, null);
-            setStatus(status);
-            return false;
+        if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
+        if(connectState!=MonitorConnectState.monitorStarted) {
+            throw new RuntimeException("PvaClientMonitor::poll illegal state");
         }
+        if(!userPoll) {
+            throw new RuntimeException("PvaClientMonitor::poll did not call poll");
+        }
+        userPoll = false;
         monitor.release(monitorElement);
-        monitorElement = null;
-        return true;
     }
     /**
      * Get the data in which monitor events are placed.
@@ -274,6 +307,7 @@ public class PvaClientMonitor implements MonitorRequester{
      */
     PvaClientMonitorData getData()
     {
-        IMPLEMENT
+        checkMonitorState();
+        return pvaClientData;
     }  
 }

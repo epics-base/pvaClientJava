@@ -6,6 +6,7 @@ package org.epics.pvaClient;
 import org.epics.pvdata.pv.MessageType;
 import org.epics.pvdata.pv.PVStructure;
 import org.epics.pvdata.pv.Status;
+import org.epics.pvdata.pv.StatusCreate;
 import org.epics.pvdata.pv.Union;
 
 import java.util.concurrent.locks.Condition;
@@ -16,7 +17,6 @@ import org.epics.pvdata.factory.*;
 import org.epics.pvdata.pv.*;
 import org.epics.pvdata.misc.*;
 import org.epics.pvdata.monitor.*;
-
 import org.epics.pvaccess.client.*;
 
 /**
@@ -25,375 +25,193 @@ import org.epics.pvaccess.client.*;
  *
  */
 public class PvaClientMultiChannel {
-    static public PvaClientMultiChannel create()
+    static public PvaClientMultiChannel create(
+        PvaClient pvaClient,
+        String[] channelNames,
+        String providerName)
     {
+         return new PvaClientMultiChannel(pvaClient,channelNames,providerName);
     }
 
     public PvaClientMultiChannel(
             PvaClient pvaClient,
             String[] channelNames,
-            String providerName,
-            Union union)
+            String providerName)
     {
-        this.easyPVA = easyPVA;
+        this.pvaClient = pvaClient;
         this.channelName = channelNames;
         this.providerName = providerName;
-        this.union = union;
         numChannel = channelNames.length;
-        channelRequester = new ChannelRequesterPvt[numChannel];
-        channel = new Channel[numChannel];
-        connectRequested = new boolean[numChannel];
-        isConnected = new boolean[numChannel];
-        channelStatus = new Status[numChannel];
-        connectionState = new ConnectionState[numChannel];
-        for(int i=0; i<numChannel; ++i) {
-            channelRequester[i] = new ChannelRequesterPvt(this,i);
-            channel[i] = null;
-            connectRequested[i] = false;
-            isConnected[i] = false;
-            channelStatus[i] = statusCreate.getStatusOK();
-            connectionState[i] = ConnectionState.NEVER_CONNECTED;
-        }
     }
 
-    private final PvaClient easyPVA;
+    private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
+    private static final PVDataCreate pvDataCreate = PVDataFactory.getPVDataCreate();
+    private final PvaClient pvaClient;
     private final String[] channelName;
     private final String providerName;
-    private final Union union;
     private final int numChannel;
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition waitForConnect = lock.newCondition();
 
-    private ChannelRequesterPvt[] channelRequester = null;
     private volatile int numConnected = 0;
-    private volatile int numNewConnectRequest = 0;
-    private volatile Channel[] channel = null;
-    private volatile boolean[] connectRequested = null;
+    private volatile PvaClientChannel[] pvaClientChannelArray = null;
     private volatile boolean[] isConnected = null;
 
     private volatile boolean isDestroyed = false;
     private volatile Status[] channelStatus = null;
-    private volatile Status status = statusCreate.getStatusOK();
-    private volatile ConnectionState[] connectionState = null;
 
-    private boolean checkConnected() {
-        if(numConnected==0) connect(3.0);
-        if(numConnected==channelName.length) return true;
-        return false;
-    }
-    /**
-     * Get the requester name.
-     * @return The name.
-     */
-     public String getRequesterName()
-    {
-        return easyPVA.getRequesterName();
-    } 
-    /**
-     * new message.
-     * @param message The message string.
-     * @param messageType The message type.
-     */
-     public void message(String message, MessageType messageType)
-     {
-         if(isDestroyed) return;
-         String mess = channelName + " " + message;
-         easyPVA.message(mess, messageType);
-     }
-     /**
-      * Get the channelNames.
-      * @return the names.
-      */
-     String[] getChannelNames()
-     {
-         return channelName
-     }
+    
      /**
       * Destroy all resources.
       */
-     void destroy()
+     public void destroy()
      {
          synchronized (this) {
              if(isDestroyed) return;
              isDestroyed = true;
          }
-         for(int i=0; i< channelName.length; ++i) {
-             if(channel[i]!=null) channel[i].destroy();
+         if(pvaClientChannelArray==null) return;
+         for(int i=0; i< pvaClientChannelArray.length; ++i) {
+             if(pvaClientChannelArray[i]!=null) pvaClientChannelArray[i].destroy();
          }
      }
-     /**
-      * Calls issueConnect and then waitConnect.
-      * @param timeout timeOut for waitConnect.
-      * @return (false,true) if (not connected, connected)
+      /**
+      * Get the channelNames.
+      * @return the names.
       */
-     boolean connect(double timeout)
+     public String[] getChannelNames()
      {
-         issueConnect();
-         return waitConnect(timeout);
+         return channelName;
      }
-     /**
-      * Calls issueConnect and then waitConnect.
-      * @param timeout timeOut for waitConnect
-      * @param minConnect minConnect for waitConnect
-      * @return (false,true) means (did not, did) connect.
-      */
-     boolean connect(double timeout,int minConnect)
+     /** Connect to the channels.
+     * This calls issueConnect and waitConnect.
+     * An exception is thrown if connect fails.
+     * @param timeout The time to wait for connecting to the channel.
+     * @param maxNotConnected Maximum number of channels that do not connect.
+     * @return status of request
+     */
+     public Status connect(double timeout,int maxNotConnected)
      {
-         issueConnect();
-         return waitConnect(timeout,minConnect);
-     }
-     /**
-      * Connect to all channels.
-      */
-     void issueConnect()
-     {
-         if(isDestroyed) return;
-         if(numNewConnectRequest!=0) {
-             throw new RuntimeException("multiChannel issueConnect called multiple times ");
+         if(isDestroyed) {
+             throw new RuntimeException("pvaClientMultiChannel was destroyed");
          }
-         ChannelProvider channelProvider = ChannelProviderRegistryFactory.getChannelProviderRegistry().getProvider(providerName);
-         numNewConnectRequest = 0;
-         for(int i=0; i<channelName.length; ++i) {
-             if(connectRequested[i]) continue;
-             numNewConnectRequest++;
-             connectRequested[i] = true;
+         if(pvaClientChannelArray!=null) {
+             throw new RuntimeException("pvaClientMultiChannel already connected");
+         }
+         if(pvaClient==null) {
+             throw new RuntimeException("pvaClientMultiChannel pvaClient is gone");
+         }
+         pvaClientChannelArray = new PvaClientChannel[numChannel];
+         isConnected = new boolean[numChannel];
+         for(int i=0; i<numChannel; ++i)
+         {
              isConnected[i] = false;
-             channel[i] = channelProvider.createChannel(
-                     channelName[i],
-                     channelRequester[i],
-                     ChannelProvider.PRIORITY_DEFAULT);   
          }
-     }
-     /**
-      * Wait until all channels are connected or until timeout.
-      * @param timeout The time to wait for connections.
-      * When a timeout occurs a new time out will start if any channels connected since the last timeout.
-      * @return (false,true) if all channels (did not, did) connect.
-      */
-     boolean waitConnect(double timeout)
-     {
-         return waitConnect(timeout,numChannel);
-     }
-     /**
-      * Wait until minConnect channels are connected or until timeout and no more channels connect.
-      * @param timeout The time to wait for connections.
-      * @param minConnect The minimum number of channels that must connect.
-      * When a timeout occurs a new time out will start if any channels connected since the last timeout.
-      * @return (false,true) of all channels (did not, did) connect.
-      */
-     boolean waitConnect(double timeout,int minConnect)
-     {
-         if(isDestroyed) return false;
-         int numNowConected = 0;
-         while(true) {
-             try {
-                 lock.lock();
-                 try {
-                     if(numNewConnectRequest==0) break;
-                     long nano = (long)(timeout*1e9);
-                     numNowConected = numConnected;
-                     if(numConnected<numChannel) waitForConnect.awaitNanos(nano);
-                 } catch(InterruptedException e) {
-                     String message = "channel "
-                             + " InterruptedException " + e.getMessage();
-                     throw new RuntimeException(message);
-                 }
-             } finally {
-                 lock.unlock();
+         for(int i=0; i<numChannel; ++i)
+         {
+             pvaClientChannelArray[i] = pvaClient.createChannel(channelName[i],providerName);
+             pvaClientChannelArray[i].issueConnect();
+         }
+         Status returnStatus = statusCreate.getStatusOK();
+         Status status = statusCreate.getStatusOK();
+         int numBad = 0;
+         for(int  i=0; i< numChannel; ++i) {
+             if(numBad==0) {
+                 status = pvaClientChannelArray[i].waitConnect(timeout);
+             } else {
+                 status = pvaClientChannelArray[i].waitConnect(.001);
              }
-             if(numConnected==numChannel) break;
-             if(numNowConected==numConnected) break;  // no new so quit 
-             if(numNowConected<minConnect)  continue;
-             break;
+             if(status.isOK()) {
+                 ++numConnected;
+                 isConnected[i] = true;
+                 continue;
+             }
+             if(returnStatus.isOK()) returnStatus = status;
+             ++numBad;
+             if(numBad>maxNotConnected) break;
          }
-         if(numConnected<minConnect) {
-             String message = " channels " + numChannel + " but only " + numNowConected + " are connected";
-             throw new RuntimeException(message);
-         }
-         return true;
+         
+         return numBad>maxNotConnected ? returnStatus : statusCreate.getStatusOK();
      }
-     /**
-      * Are all channels connected?
-      * @return if all are connected.
-      */
-     boolean allConnected()
+     /** Are all channels connected?
+     * @return if all are connected.
+     */
+     public boolean allConnected()
      {
+         if(isDestroyed) {
+             throw new RuntimeException("pvaClientMultiChannel was destroyed");
+         }
+         if(pvaClientChannelArray==null) {
+             throw new RuntimeException("pvaClientMultiChannel not connected");
+         }
+         return (numConnected==numChannel) ? true : false;
+     }
+    /** Has a connection state change occured?
+     * @return (true, false) if (at least one, no) channel has changed state.
+     */
+    public boolean connectionChange()
+    {
+         if(isDestroyed) {
+             throw new RuntimeException("pvaClientMultiChannel was destroyed");
+         }
+         if(pvaClientChannelArray==null) {
+             throw new RuntimeException("pvaClientMultiChannel not connected");
+         }
          if(numConnected==numChannel) return true;
-         return false;
-     }
-     /**
-      * Get the connection state of each channel.
-      * @return The state of each channel.
-      */
-     boolean[] isConnected()
-     {
-         return isConnected;
-     }
-     /**
-      * Create an EasyMultiData.
-      * @param pvRequest The pvRequest for each channel.
-      * @param union The union for each channel.
-      * @return The interface.
-      */
-     PvaClientMultiData createEasyMultiData(PVStructure pvRequest,Union union)
-     {
-         return PvaClientMultiDataImpl.create(this,channel,pvRequest,union);
-     }
-     /**
-      * create a multiChannelGet that presents data as a NTMultiChannel.
-      * calls the next method with request = "field(value,alarm,timeStamp)"
-      * @return The interface.
-      */
-     PvaClientMultiGet createGet()
-     {
-         return createGet(false);
-     }
-     /**
-      * create a multiChannelGet.
-      * calls the next method after creating a pvRequest structure.
-      * @param request A request string valid for creatRequest.
-      * @return The interface.
-      */
-     PvaClientMultiGet createGet(String request)
-     {
-         return createGet(false,request);
-     }
-     /**
-      * create a multiChannelGet.
-      * @param pvRequest The pvRequest for each channel.
-      * @return The interface.
-      */
-     PvaClientMultiGet createGet(PVStructure pvRequest)
-     {
-         return createGet(false,pvRequest);
-     }
-     /**
-      * create a multiChannelGet.
-      * @param doubleOnly true if data presented as a double[].
-      * @return The interface.
-      */
-     PvaClientMultiGet createGet(boolean doubleOnly)
-     {
-         String request = doubleOnly ? "value" : "value,alarm,timeStamp";
-         return createGet(doubleOnly,request);
-     }
-     /**
-      * create a multiChannelGet.
-      * calls the next method with request = "field(value)"
-      * @param doubleOnly true if data presented as a double[].
-      * @param request  A request string valid for creatRequest.
-      * @return EasyMultiGet or null if invalid request.
-      */
-     PvaClientMultiGet createGet(boolean doubleOnly,String request)
-     {
-         PVStructure pvStructure = createRequest(request);
-         if(pvStructure==null) return null;
-         return createGet(doubleOnly,pvStructure);
-     }
-     /**
-      * create a multiChannelGet.
-      * @param doubleOnly true if data presented as a double[].
-      * @param pvRequest The pvRequest for each channel.
-      * @return  EasyMultiGet or null if invalid request.
-      */
-     PvaClientMultiGet createGet(boolean doubleOnly,PVStructure pvRequest)
-     {
-         if(!checkConnected()) return null;
-         Union union = this.union;
-         if(doubleOnly) {
-             Field[] field = new Field[1];
-             String[] name = new String[1];
-             name[0] = "double";
-             field[0] = fieldCreate.createScalar(ScalarType.pvDouble);
-             union = fieldCreate.createUnion(name, field);
-         }
-         return  PvaClientMultiGetImpl.create(this,channel,pvRequest,union);
-     }
-     /**
-      * create a multiChannelPut.
-      * @return The interface.
-      */
-     PvaClientMultiPut createPut()
-     {
-         return createPut(false);
-     }
-     /**
-      * create a multiChannelPut.
-      * @param doubleOnly true if data must be presented as a double[].
-      * @return EasyMultiPut or null if invalid request.
-      */
-     PvaClientMultiPut createPut(boolean doubleOnly)
-     {
-         if(!checkConnected()) return null;
-         return PvaClientMultiPutImpl.create(this,channel,doubleOnly);
-     }
-     /**
-      * Call the next method with request =  "field(value,alarm,timeStamp)" 
-      * @return The interface.
-      */
-     PvaClientMultiMonitor createMonitor()
-     {{
-         return createMonitor(false);
-     }
-     /**
-      * First call createRequest as implemented by pvDataJava and then calls the next method.
-      * @param request The request as described in package org.epics.pvdata.copy
-      * @return The interface.
-      */
-     PvaClientMultiMonitor createMonitor(String request)
+         for(int i=0; i<numChannel; ++i) {
+             PvaClientChannel pvaClientChannel = pvaClientChannelArray[i];
+             Channel channel = pvaClientChannel.getChannel();
+             Channel.ConnectionState stateNow = channel.getConnectionState();
+             boolean connectedNow = stateNow==Channel.ConnectionState.CONNECTED ? true : false;
+             if(connectedNow!=isConnected[i]) return true;
+        }
+        return false; 
+    }
 
-     return createMonitor(false,request);
-     }
-     /**
-      * Creates an EasyMultiMonitor.
-      * The pvRequest is used to create the monitor for each channel.
-      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
-      * @return The interface.
-      */
-     PvaClientMultiMonitor createMonitor(PVStructure pvRequest)
-     {
-         return createMonitor(false,pvRequest);
-     }
-     /**
-      * Call the next method with request =  "field(value,alarm,timeStamp)" 
-      * @param doubleOnly true if data must be presented as a double[].
-      * @return The interface.
-      */
-     PvaClientMultiMonitor createMonitor(boolean doubleOnly)
-     {
-         String request = doubleOnly ? "value" : "value,alarm,timeStamp";
-         return createMonitor(doubleOnly,request);
-     }
-     /**
-      * First call createRequest as implemented by pvDataJava and then calls the next method.
-      * @param doubleOnly true if data must be presented as a double[].
-      * @param request The request as described in package org.epics.pvdata.copy
-      * @return The interface.
-      */
-     PvaClientMultiMonitor createMonitor(boolean doubleOnly,String request)
-     {
-         PVStructure pvRequest = createRequest(request);
-         if(pvRequest==null) return null;
-         return createMonitor(doubleOnly,pvRequest);
-     }
-     /**
-      * Creates an EasyMultiMonitor.
-      * The pvRequest is used to create the monitor for each channel.
-      * @param doubleOnly true if data must be presented as a double[].
-      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
-      * @return The interface.
-      */
-     PvaClientMultiMonitor createMonitor(boolean doubleOnly,PVStructure pvRequest)
-     {
-         if(!checkConnected()) return null;
-         Union union = this.union;
-         if(doubleOnly) {
-             Field[] field = new Field[1];
-             String[] name = new String[1];
-             name[0] = "double";
-             field[0] = fieldCreate.createScalar(ScalarType.pvDouble);
-             union = fieldCreate.createUnion(name, field);
-         }
-         return PvaClientMultiMonitorImpl.create(this, channel, pvRequest,union);
-     }
+    /** Get the connection state of each channel.
+     * @return The state of each channel.
+     */
+    boolean[] getIsConnected()
+    {
+        if(isDestroyed) {
+             throw new RuntimeException("pvaClientMultiChannel was destroyed");
+        }
+        if(pvaClientChannelArray==null) {
+            throw new RuntimeException("pvaClientMultiChannel not connected");
+        }
+        for(int i=0; i<numChannel; ++i) isConnected[i] = false;
+        PvaClientChannel[] channels = pvaClientChannelArray;
+        for(int i=0; i<numChannel; ++i) {
+            PvaClientChannel pvaClientChannel = channels[i];
+            Channel channel = pvaClientChannel.getChannel();
+            Channel.ConnectionState stateNow = channel.getConnectionState();
+            if(stateNow==Channel.ConnectionState.CONNECTED) isConnected[i] = true;
+        }
+        return isConnected;
+    }
+    /** Get the pvaClientChannelArray.
+     * @return The weak shared pointer.
+     */
+    PvaClientChannel[] getPvaClientChannelArray()
+    {
+        if(isDestroyed) {
+             throw new RuntimeException("pvaClientMultiChannel was destroyed");
+        }
+        if(pvaClientChannelArray==null) {
+            throw new RuntimeException("pvaClientMultiChannel not connected");
+        }
+        return pvaClientChannelArray;
+    }
+    /** Get pvaClient.
+     * @return The weak shared pointer.
+     */
+    PvaClient getPvaClient()
+    {
+        if(isDestroyed) {
+             throw new RuntimeException("pvaClientMultiChannel was destroyed");
+        }
+        return pvaClient;
+    }
+     
+
 }
