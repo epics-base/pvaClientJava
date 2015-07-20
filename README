@@ -1,26 +1,4 @@
 This is being developed.
-
-READY FOR TESTING
-PvaClientMonitorRequester.java
-PvaMultiMonitorRequester.java
-PvaClient.java
-PvaClientChannel.java
-PvaClientGetData.java
-PvaClientPutData.java
-PvaClientMonitorData.java
-PvaClientGet.java
-PvaClientPut.java
-PvaClientMonitor.java
-PvaClientMultiChannel.java
-
-TODO
-PvaClientMultiData.java
-PvaClientMultiGet.java
-PvaClientMultiPut.java
-PvaClientMultiMonitor.java
-PvaClientProcess.java
-PvaClientPutGet.java
-PvaClientRPC.java
+The following are not implemented
 PvaClientField.java
 PvaClientArray.java
-TODO
