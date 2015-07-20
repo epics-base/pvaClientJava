@@ -16,33 +16,28 @@ import org.epics.pvdata.pv.PVStructure;
 import org.epics.pvdata.pv.Status;
 import org.epics.pvdata.pv.StatusCreate;
 import org.epics.pvdata.pv.Structure;
+import org.epics.pvdata.pv.Status.StatusType;
 
 /**
- * This is an easy to use alternative to ChannelGet
+ * This is a synchronous alternative to ChannelGet
  * @author mrk
  *
  */
 public class PvaClientGet implements ChannelGetRequester
 {
-    /**
-     * Create new PvaClientGet.
-     * @return The interface.
-     */
     static PvaClientGet create(
             PvaClient pvaClient,
-            PvaClientChannel easyChannel,
-            Channel channel, PVStructure pvRequest)
+            Channel channel,
+            PVStructure pvRequest)
     {
-        return new PvaClientGet(pvaClient,easyChannel,channel,pvRequest);
+        return new PvaClientGet(pvaClient,channel,pvRequest);
     }
 
-    public PvaClientGet(
+    private PvaClientGet(
             PvaClient pvaClient,
-            PvaClientChannel easyChannel,
             Channel channel, PVStructure pvRequest)
     {
-
-        this.pvaClientChannel = easyChannel;
+        this.pvaClient = pvaClient;
         this.channel = channel;
         this.pvRequest = pvRequest;
     }
@@ -50,7 +45,7 @@ public class PvaClientGet implements ChannelGetRequester
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
 
     private enum GetConnectState {connectIdle,connectActive,connected};
-    private final PvaClientChannel pvaClientChannel;
+    private final PvaClient pvaClient;
     private final Channel channel;
     private final PVStructure pvRequest;
     private final ReentrantLock lock = new ReentrantLock();
@@ -66,64 +61,76 @@ public class PvaClientGet implements ChannelGetRequester
 
     private volatile GetConnectState connectState = GetConnectState.connectIdle;
 
-    private enum GetState {getIdle,getActive,getDone};
+    private enum GetState {getIdle,getActive,getComplete};
     private volatile GetState getState = GetState.getIdle;
 
-    @Override
-    public String getRequesterName() {
-        if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
-        return pvaClientChannel.getRequesterName();
-    }
-
-    @Override
-    public void message(String message, MessageType messageType) {
-        pvaClientChannel.message(message, messageType);
-    }
-
-    @Override
-    public void channelGetConnect(Status status, ChannelGet channelGet, Structure structure) {
-        if(isDestroyed) return;
-        channelGetConnectStatus = status;
-        this.channelGet = channelGet;
-        if(status.isOK()) {
-            pvaClientData = PvaClientGetData.create(structure);
-            pvaClientData.setMessagePrefix(channel.getChannelName());
-        }
-        lock.lock();
-        try {
-            waitForConnect.signal();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @Override
-    public void getDone(Status status, ChannelGet channelGet, PVStructure pvStructure, BitSet bitSet) { 
-        if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
-        channelGetStatus = status;
-        if(status.isOK()) {
-            pvaClientData.setData(pvStructure,bitSet);
-        }
-
-        lock.lock();
-        try {
-            waitForGet.signal();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    private void checkGetState() {
+    private void checkConnected() {
         if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
         if(connectState==GetConnectState.connectIdle) connect();
         if(getState==GetState.getIdle) get();
 
     }
 
+    /* (non-Javadoc)
+     * @see org.epics.pvdata.pv.Requester#getRequesterName()
+     */
+    @Override
+    public String getRequesterName() {
+        return pvaClient.getRequesterName();
+    }
+
+    /* (non-Javadoc)
+     * @see org.epics.pvdata.pv.Requester#message(java.lang.String, org.epics.pvdata.pv.MessageType)
+     */
+    @Override
+    public void message(String message, MessageType messageType) {
+        pvaClient.message(message, messageType);
+    }
+
+    /* (non-Javadoc)
+     * @see org.epics.pvaccess.client.ChannelGetRequester#channelGetConnect(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelGet, org.epics.pvdata.pv.Structure)
+     */
+    @Override
+    public void channelGetConnect(Status status, ChannelGet channelGet, Structure structure) {
+        if(isDestroyed) return;
+        lock.lock();
+        try {
+            channelGetConnectStatus = status;
+            connectState = GetConnectState.connected;
+            this.channelGet = channelGet;
+            if(status.isOK()) {
+                pvaClientData = PvaClientGetData.create(structure);
+                pvaClientData.setMessagePrefix(channel.getChannelName());
+            }
+            waitForConnect.signal();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /* (non-Javadoc)
+     * @see org.epics.pvaccess.client.ChannelGetRequester#getDone(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelGet, org.epics.pvdata.pv.PVStructure, org.epics.pvdata.misc.BitSet)
+     */
+    @Override
+    public void getDone(Status status, ChannelGet channelGet, PVStructure pvStructure, BitSet bitSet) { 
+        if(isDestroyed) return;
+        lock.lock();
+        try {
+            channelGetStatus = status;
+            getState = GetState.getComplete;
+            if(status.isOK()) {
+                pvaClientData.setData(pvStructure,bitSet);
+            }
+            waitForGet.signal();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /**
      * clean up resources used.
      */
-    void destroy()
+    public void destroy()
     {
         synchronized (this) {
             if(isDestroyed) return;
@@ -137,7 +144,7 @@ public class PvaClientGet implements ChannelGetRequester
      * call issueConnect and then waitConnect.
      * An exception is thrown if connect fails.
      */
-    void connect()
+    public void connect()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
         issueConnect();
@@ -154,7 +161,7 @@ public class PvaClientGet implements ChannelGetRequester
      * create the channelGet connection to the channel.
      * This can only be called once.
      */
-    void issueConnect()
+    public void issueConnect()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
         if(connectState!=GetConnectState.connectIdle) {
@@ -169,43 +176,43 @@ public class PvaClientGet implements ChannelGetRequester
 
     /**
      * wait until the channelGet connection to the channel is complete.
-     * @return status
+     * @return status of connection request.
      */
-    Status waitConnect()
+    public Status waitConnect()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
-        if(connectState!=GetConnectState.connectActive) {
-            String message = "channel "
-                    + channel.getChannelName() 
-                    + " pvaClientGet illegal connect state ";
-            throw new RuntimeException(message);
-        }
+        lock.lock();
         try {
-            lock.lock();
+            if(connectState==GetConnectState.connected) {
+                if(!channelGetConnectStatus.isOK()) connectState = GetConnectState.connectIdle;
+                return channelGetConnectStatus;
+            }
+            if(connectState!=GetConnectState.connectActive) {
+                String message = "channel "
+                        + channel.getChannelName() 
+                        + " pvaClientGet illegal connect state ";
+                return statusCreate.createStatus(StatusType.ERROR, message,null);
+            }
             try {
                 waitForConnect.await();
             } catch(InterruptedException e) {
                 String message = "channel "
                         + channel.getChannelName() 
                         + " InterruptedException " + e.getMessage();
-                throw new RuntimeException(message);
+                return statusCreate.createStatus(StatusType.ERROR, message,e.fillInStackTrace());
             }
+            if(!channelGetConnectStatus.isOK()) connectState = GetConnectState.connectIdle;
+            return channelGetConnectStatus;
         } finally {
             lock.unlock();
         }
-        if(channelGetConnectStatus.isOK()){
-            connectState = GetConnectState.connected;
-            return statusCreate.getStatusOK();
-        }
-        connectState = GetConnectState.connectIdle;
-        return channelGetConnectStatus;
-    }
 
+    }
     /**
      * Call issueGet and then waitGet.
      * An exception is thrown if get fails
      */
-    void get()
+    public void get()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
         issueGet();
@@ -221,7 +228,7 @@ public class PvaClientGet implements ChannelGetRequester
     /**
      * Issue a get and return immediately.
      */
-    void issueGet()
+    public void issueGet()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
         if(connectState==GetConnectState.connectIdle) connect();
@@ -237,45 +244,45 @@ public class PvaClientGet implements ChannelGetRequester
 
     /**
      * Wait until get completes.
-     * @return status
+     * @return status of get request.
      */
-    Status waitGet()
+    public Status waitGet()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
-        if(getState!=GetState.getActive){
-            String message = "channel "
-                    + channel.getChannelName() 
-                    +  " PvaClientGet::waitGet llegal get state ";
-            throw new RuntimeException(message);
-        }
+        lock.lock();
         try {
-            lock.lock();
+            if(getState==GetState.getComplete) {
+                getState = GetState.getIdle;
+                return channelGetStatus;
+            }
+            if(getState!=GetState.getActive){
+                String message = "channel "
+                        + channel.getChannelName() 
+                        +  " PvaClientGet::waitGet llegal get state ";
+                throw new RuntimeException(message);
+            }
             try {
-                if(getState==GetState.getActive) waitForGet.await();
+                waitForGet.await();
             } catch(InterruptedException e) {
                 String message = "channel "
                         + channel.getChannelName() 
                         + " InterruptedException " + e.getMessage();
                 throw new RuntimeException(message);
             }
+            getState = GetState.getIdle;
+            return channelGetStatus;
         } finally {
             lock.unlock();
         }
-
-        getState = GetState.getIdle;
-        if(channelGetStatus.isOK()) {
-            return statusCreate.getStatusOK();
-        }
-        return channelGetStatus;
     }
 
     /**
-     * Get the data/
+     * Get the data for the channelGet.
      * @return The interface.
      */
-    PvaClientGetData getData()
+    public PvaClientGetData getData()
     {
-        checkGetState();
+        checkConnected();
         return pvaClientData;
     }
 

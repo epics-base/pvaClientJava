@@ -11,44 +11,25 @@
 
 package org.epics.pvaClient;
 
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.*;
-import java.util.Collection;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 import org.epics.pvaccess.client.Channel;
-import org.epics.pvaccess.client.Channel.ConnectionState;
-import org.epics.pvaccess.client.ChannelProvider;
-import org.epics.pvaccess.client.ChannelProviderRegistryFactory;
-import org.epics.pvaccess.client.ChannelRequester;
-
-import org.epics.pvdata.copy.CreateRequest;
-import org.epics.pvdata.factory.FieldFactory;
-import org.epics.pvdata.factory.StatusFactory;
-import org.epics.pvdata.misc.LinkedList;
-import org.epics.pvdata.misc.LinkedListCreate;
-import org.epics.pvdata.misc.LinkedListNode;
-import org.epics.pvdata.pv.Field;
-import org.epics.pvdata.pv.FieldCreate;
 import org.epics.pvdata.pv.MessageType;
-import org.epics.pvdata.pv.PVStructure;
 import org.epics.pvdata.pv.Requester;
-import org.epics.pvdata.pv.ScalarType;
-import org.epics.pvdata.pv.Status;
-import org.epics.pvdata.pv.Status.StatusType;
-import org.epics.pvdata.pv.StatusCreate;
-import org.epics.pvdata.pv.Union;
 
 /**
- * PvaClient is an easy to use interface to pvAccess.
+ * PvaClient is a synchronous  interface to pvAccess.
  * @author mrk
  *
  */
 public class PvaClient implements Requester {
 
     /**
-     * Create an instance of PvaClient.
-     * @return The newly created PvaClient.
+     * Get the single instance of PvaClient.
+     * @return The interface to PvaClient.
      */
     static public synchronized PvaClient get() {
         if(pvaClient==null) {
@@ -83,13 +64,8 @@ public class PvaClient implements Requester {
             if(pvaClientChannelMap.get(name)!=null) return;
             pvaClientChannelMap.put(name, pvaClientChannel);
         }
-        void removeChannel(
-                String channelName,
-                String providerName)
-        {
-            String name = channelName + providerName;
-            pvaClientChannelMap.remove(name);
-        }
+        
+        
         public String toString()
         {
             String result = "";
@@ -101,8 +77,9 @@ public class PvaClient implements Requester {
                 Channel channel = pvaChannel.getChannel();
                 String channelName = channel.getChannelName();
                 String providerName = channel.getProvider().getProviderName();
-                result += "channel " + channelName + " providerName " + providerName;
+                result += "channel " + channelName + " providerName " + providerName + "\n";
                 result += "  get and put cacheSize " + pvaChannel.cacheSize() + "\n";
+                result += "  get and put cache\n" + pvaChannel.showCache();
             }
             return result;
         }
@@ -116,45 +93,39 @@ public class PvaClient implements Requester {
      
     private static final PvaClientChannelCache pvaClientChannelCache
         = new PvaClientChannelCache();
-    private static final FieldCreate fieldCreate = FieldFactory.getFieldCreate();
     private static final String pvaClientName = "pvaClient";
     private static final String defaultProvider =
             org.epics.pvaccess.ClientFactory.PROVIDER_NAME;
-    private static final Union variantUnion = 
-            FieldFactory.getFieldCreate().createVariantUnion();
-
-    private static PVStructure createRequest(String request)
-    {
-        CreateRequest factory = CreateRequest.create();
-        PVStructure pvStructure = factory.createRequest(request);
-        if (pvStructure == null) 
-            throw new RuntimeException("invalid pvRequest: " + factory.getMessage());
-        else
-            return pvStructure;
-    }
-    private enum ConnectState {connectIdle,connectActive,notConnected,connected};
-
+    
     private Requester requester = null;
     private boolean isDestroyed = false;
 
 
     /**
-     * Destroy all the channels and multiChannels.
+     * Destroy all cached channels.
      */
-    public synchronized void destroy()
+    public void destroy()
     {
-        if(isDestroyed) return;
-        isDestroyed = true;
+        synchronized (this) {
+            if(isDestroyed) return;
+            isDestroyed = true;
+        }
         pvaClientChannelCache.destroy();
         org.epics.pvaccess.ClientFactory.stop();
         org.epics.ca.ClientFactory.stop();
     }
 
+    /* (non-Javadoc)
+     * @see org.epics.pvdata.pv.Requester#getRequesterName()
+     */
     public  String getRequesterName() {
         if(requester!=null) return requester.getRequesterName();
         return pvaClientName;
     }
 
+    /* (non-Javadoc)
+     * @see org.epics.pvdata.pv.Requester#message(java.lang.String, org.epics.pvdata.pv.MessageType)
+     */
     public void message(String message, MessageType messageType) {
         if(requester!=null) {
             requester.message(message, messageType);
@@ -237,13 +208,13 @@ public class PvaClient implements Requester {
     }
     /** Show the list of cached gets and puts.
      */
-    String showCache()
+    public String showCache()
     {
          return pvaClientChannelCache.toString();
     }
      /** Get the number of cached gets and puts.
      */
-    int cacheSize()
+    public int cacheSize()
     {
          return pvaClientChannelCache.cacheSize();
     }

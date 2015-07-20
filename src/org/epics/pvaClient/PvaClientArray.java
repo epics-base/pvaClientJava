@@ -3,13 +3,12 @@
  */
 package org.epics.pvaClient;
 
-import org.epics.pvdata.pv.PVArray;
+import org.epics.pvaccess.client.Channel;
 import org.epics.pvdata.pv.PVStructure;
-import org.epics.pvdata.pv.Status;
-import org.epics.pvaccess.client.*;
 
 /**
  * An easy to use alternative to directly calling the ChannelArray methods of pvAccess.
+ * NOT implemented.
  * @author mrk
  *
  */
@@ -17,6 +16,7 @@ public class PvaClientArray
 {
     /**
      * Create new PvaClientArray.
+     * NOT implemented.
      * @return The interface.
      */
     static PvaClientArray create(

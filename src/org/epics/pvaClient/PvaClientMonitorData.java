@@ -29,7 +29,7 @@ import org.epics.pvdata.pv.Structure;
 import org.epics.pvdata.pv.Type;
 
 /**
- * This is a convenience wrapper for a PVStructure.
+ * This is a convenience wrapper for data for a channel monitor.
  * @author mrk
  *
  */
@@ -39,7 +39,7 @@ public class PvaClientMonitorData {
         return new PvaClientMonitorData(structure);
     }
 
-    public PvaClientMonitorData(Structure structure)
+    private PvaClientMonitorData(Structure structure)
     {
         this.structure = structure;
     }
@@ -70,6 +70,18 @@ public class PvaClientMonitorData {
 
     private final DoubleArrayData doubleArrayData = new DoubleArrayData();
     private final StringArrayData stringArrayData = new StringArrayData();
+    
+    /**
+     * This is called by pvaClientMonitor when it gets a monitor.
+     * @param monitorElement The new data.
+     */
+    void setData(MonitorElement monitorElement)
+    {
+        pvStructure = monitorElement.getPVStructure();
+        changedBitSet = monitorElement.getChangedBitSet();
+        overrunBitSet = monitorElement.getOverrunBitSet();
+        pvValue = pvStructure.getSubField("value");
+    }
 
     private void checkValue()
     {
@@ -81,7 +93,7 @@ public class PvaClientMonitorData {
      * Set a prefix for throw messages.
      * @param value The prefix.
      */
-    void setMessagePrefix(String value)
+    public void setMessagePrefix(String value)
     {
         messagePrefix = value + " ";
     }
@@ -89,7 +101,7 @@ public class PvaClientMonitorData {
     /** Get the structure.
      * @return the structure.
      */
-    Structure getStructure()
+    public Structure getStructure()
     {
         return structure;
     }
@@ -97,17 +109,17 @@ public class PvaClientMonitorData {
     /** Get the pvStructure.
      * @return the pvStructure.
      */
-    PVStructure getPVStructure()
+    public PVStructure getPVStructure()
     {
         if(pvStructure!=null) return pvStructure;
         throw new RuntimeException(messagePrefix + noStructure);
     }
 
-    /** Get the BitSet for the pvStructure
+    /** Get the changed BitSet for the pvStructure
      * This shows which fields have changed value.
      * @return The bitSet
      */
-    BitSet getChangedBitSet()
+    public BitSet getChangedBitSet()
     {
         if(changedBitSet!=null) return changedBitSet;
         throw new RuntimeException(messagePrefix + noStructure);
@@ -117,7 +129,7 @@ public class PvaClientMonitorData {
      * This shows which fields have had more than one change
      * @return The changedBitSet
      */
-    BitSet getOverrunBitSet()
+    public BitSet getOverrunBitSet()
     {
         if(overrunBitSet!=null) return overrunBitSet;
         throw new RuntimeException(messagePrefix + noStructure);
@@ -127,7 +139,7 @@ public class PvaClientMonitorData {
      * Show fields that have changed value, i. e. all fields as shown by changedBitSet.
      * @return The changed fields.
      */
-    String showChanged()
+    public String showChanged()
     {
         if(changedBitSet==null) throw new RuntimeException(messagePrefix + noStructure);
         String result = "";
@@ -140,7 +152,7 @@ public class PvaClientMonitorData {
                 pvField = pvStructure.getSubField(nextSet);
             }
             result += pvField.getFullName() + " = " + pvField + "\n";
-            nextSet = changedBitSet.nextSetBit(nextSet);
+            nextSet = changedBitSet.nextSetBit(nextSet + 1);
         }
         return result;
     }
@@ -149,7 +161,7 @@ public class PvaClientMonitorData {
      * Show fields that have overrun value, i. e. all fields as shown by overrun bitSet.
      * @return The overrun fields.
      */
-    String showOverrun()
+    public String showOverrun()
     {
         if(overrunBitSet==null) throw new RuntimeException(messagePrefix + noStructure);
         String result = "";
@@ -162,28 +174,16 @@ public class PvaClientMonitorData {
                 pvField = pvStructure.getSubField(nextSet);
             }
             result += pvField.getFullName() + " = " + pvField + "\n";
-            nextSet = overrunBitSet.nextSetBit(nextSet);
+            nextSet = overrunBitSet.nextSetBit(nextSet + 1);
         }
         return result;
-    }
-
-    /**
-     * New data is present.
-     * @param monitorElement The new data.
-     */
-    void setData(MonitorElement monitorElement)
-    {
-        pvStructure = monitorElement.getPVStructure();
-        changedBitSet = monitorElement.getChangedBitSet();
-        overrunBitSet = monitorElement.getOverrunBitSet();
-        pvValue = pvStructure.getSubField("value");
     }
 
     /**
      * Is there a top level field named value of the PVstructure returned by channelGet?
      * @return The answer.
      */
-    boolean hasValue()
+    public boolean hasValue()
     {
         if(pvValue==null) return false;
         return true;
@@ -193,7 +193,7 @@ public class PvaClientMonitorData {
      * Is the value field a scalar?
      * @return The answer.
      */
-    boolean isValueScalar()
+    public boolean isValueScalar()
     {
         if(pvValue==null) return false;
         if(pvValue.getField().getType()==Type.scalar) return true;
@@ -204,7 +204,7 @@ public class PvaClientMonitorData {
      * Is the value field a scalar array?
      * @return The answer.
      */
-    boolean isValueScalarArray()
+    public boolean isValueScalarArray()
     {
         if(pvValue==null) return false;
         if(pvValue.getField().getType()==Type.scalarArray) return true;
@@ -215,7 +215,7 @@ public class PvaClientMonitorData {
      * Return the interface to the value field.
      * @return The interface or null if no top level value field.
      */
-    PVField getValue()
+    public PVField getValue()
     {
         checkValue();
         return pvValue;
@@ -225,7 +225,7 @@ public class PvaClientMonitorData {
      * Return the interface to a scalar value field.
      * @return Return the interface for a scalar value field or null if no scalar value field.
      */
-    PVScalar getScalarValue()
+    public PVScalar getScalarValue()
     {
         checkValue();
         PVScalar pv = pvStructure.getSubField(PVScalar.class,"value");
@@ -237,7 +237,7 @@ public class PvaClientMonitorData {
      * Return the interface to an array value field.
      * @return Return the interface or null if an array value field does not exist.
      */
-    PVArray getArrayValue()
+    public PVArray getArrayValue()
     {
 
         checkValue();
@@ -250,7 +250,7 @@ public class PvaClientMonitorData {
      * Return the interface to a scalar array value field.
      * @return Return the interface or null if a scalar array value field does not exist
      */
-    PVScalarArray getScalarArrayValue()
+    public PVScalarArray getScalarArrayValue()
     {
         checkValue();
         PVScalarArray pv = pvStructure.getSubField(PVScalarArray.class,"value");
@@ -262,7 +262,7 @@ public class PvaClientMonitorData {
      * Get the value as a double.
      * @return  If value is not a numeric scalar setStatus is called and 0 is returned.
      */
-    double getDouble()
+    public double getDouble()
     {
         PVScalar pvScalar = getScalarValue();
         ScalarType scalarType = pvScalar.getScalar().getScalarType();
@@ -280,7 +280,7 @@ public class PvaClientMonitorData {
      * Get the value as a string.
      * @return If value is not a scalar setStatus is called and 0 is returned.
      */
-    String getString()
+    public String getString()
     {
         PVScalar pvScalar = getScalarValue();
         return convert.toString(pvScalar);
@@ -290,7 +290,7 @@ public class PvaClientMonitorData {
      * Get the value as a double array.
      * @return If the value is not a numeric array null is returned. 
      */
-    double[] getDoubleArray()
+    public double[] getDoubleArray()
     {
         checkValue();
         PVDoubleArray pvDoubleArray = pvStructure.getSubField(
@@ -308,7 +308,7 @@ public class PvaClientMonitorData {
      * Get the value as a string array.
      * @return If the value is not a scalar array null is returned.
      */
-    String[] getStringArray()
+    public String[] getStringArray()
     {
         checkValue();
         PVStringArray pvStringArray = pvStructure.getSubField(
@@ -329,7 +329,7 @@ public class PvaClientMonitorData {
      * @param length The maximum number of elements to copy.
      * @return The number of elements copied.
      */
-    int getDoubleArray(double[] value,int length)
+    public int getDoubleArray(double[] value,int length)
     {
         checkValue();
         PVDoubleArray pvDoubleArray = pvStructure.getSubField(
@@ -350,7 +350,7 @@ public class PvaClientMonitorData {
      * @param length The maximum number of elements to copy.
      * @return The number of elements copied.
      */
-    int getStringArray(String[] value,int length)
+    public int getStringArray(String[] value,int length)
     {
         checkValue();
         PVStringArray pvStringArray = pvStructure.getSubField(
@@ -368,7 +368,7 @@ public class PvaClientMonitorData {
      * Get the alarm for the last get.
      * @return The alarm.
      */
-    Alarm getAlarm()
+    public Alarm getAlarm()
     {
         if(pvStructure==null) throw new RuntimeException(messagePrefix + noStructure);
         PVStructure pvs = pvStructure.getSubField(PVStructure.class,"alarm");
@@ -386,7 +386,7 @@ public class PvaClientMonitorData {
      * Get the timeStamp for the last get.
      * @return The timeStamp.
      */
-    TimeStamp getTimeStamp()
+    public TimeStamp getTimeStamp()
     {
         if(pvStructure==null) throw new RuntimeException(messagePrefix + noStructure);
         PVStructure pvs = pvStructure.getSubField(PVStructure.class,"timeStamp");

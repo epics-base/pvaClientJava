@@ -8,7 +8,6 @@ import org.epics.pvdata.factory.ConvertFactory;
 import org.epics.pvdata.factory.FieldFactory;
 import org.epics.pvdata.factory.PVDataFactory;
 import org.epics.pvdata.factory.StandardFieldFactory;
-import org.epics.pvdata.factory.StatusFactory;
 import org.epics.pvdata.misc.BitSet;
 import org.epics.pvdata.property.PVTimeStamp;
 import org.epics.pvdata.property.PVTimeStampFactory;
@@ -30,9 +29,6 @@ import org.epics.pvdata.pv.PVUnionArray;
 import org.epics.pvdata.pv.Scalar;
 import org.epics.pvdata.pv.ScalarType;
 import org.epics.pvdata.pv.StandardField;
-import org.epics.pvdata.pv.Status;
-import org.epics.pvdata.pv.Status.StatusType;
-import org.epics.pvdata.pv.StatusCreate;
 import org.epics.pvdata.pv.Structure;
 import org.epics.pvdata.pv.Type;
 import org.epics.pvdata.pv.Union;
@@ -40,47 +36,43 @@ import org.epics.pvdata.pv.UnionArrayData;
 
 
 /**
- * An easy way to get data from multiple channels.
+ * This is a convenience wrapper for data for pvaClientMultiChannel.
  * @author mrk
  *
  */
 public class  PvaClientMultiData {
-    /**
-     * Factory for creating a new EasyPVStructure.
-     * @return The interface.
-     */
+   
     static PvaClientMultiData create(
-            PvaClientMultiChannel easyMultiChannel,
+            PvaClientMultiChannel pvaClientMultiChannel,
             Channel[] channel,
             PVStructure pvRequest,
             Union union)
     {
         PvaClientMultiData multiData = new PvaClientMultiData(
-                easyMultiChannel,channel,pvRequest,union);
+                pvaClientMultiChannel,channel,pvRequest,union);
         if(!multiData.init()) return null;
         return multiData;
     }
 
-    PvaClientMultiData(
-            PvaClientMultiChannel easyMultiChannel,
+    private PvaClientMultiData(
+            PvaClientMultiChannel pvaClientMultiChannel,
             Channel[] channel,
             PVStructure pvRequest,
             Union union)
             {
-        this.easyMultiChannel = easyMultiChannel;
+        this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.channel = channel;
         this.pvRequest = pvRequest;
         this.union = union;
         this.nchannel = channel.length;
             }
 
-    private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
     private static final Convert convert = ConvertFactory.getConvert();
     private static final FieldCreate fieldCreate = FieldFactory.getFieldCreate();
     private static final PVDataCreate pvDataCreate = PVDataFactory.getPVDataCreate();
     private static final StandardField standardField =
             StandardFieldFactory.getStandardField();
-    private final PvaClientMultiChannel easyMultiChannel;
+    private final PvaClientMultiChannel pvaClientMultiChannel;
     private final Channel[] channel;
     private final PVStructure pvRequest;
     private final Union union;
@@ -105,7 +97,6 @@ public class  PvaClientMultiData {
     private volatile PVUnionArray pvUnionArray = null;
     private volatile UnionArrayData unionArrayData = null;
     private volatile PVStructure pvTimeStampStructure = null;
-    private volatile Status status = statusCreate.getStatusOK();
 
 
 
@@ -118,9 +109,7 @@ public class  PvaClientMultiData {
     {
         PVField pvValue = pvRequest.getSubField("field.value");
         if(pvValue==null ) {
-            Status status = statusCreate.createStatus(StatusType.ERROR,"pvRequest did not specify value",null);
-            setStatus(status);
-            return false;
+            throw new RuntimeException("pvRequest did not specify value");
         }
 
         if(!union.isVariant()) {
@@ -147,7 +136,7 @@ public class  PvaClientMultiData {
             pvTop = pvDataCreate.createPVStructure(fieldCreate.createStructure(fieldName, field));
             pvDoubleArray = pvTop.getSubField(PVDoubleArray.class, "value");
             PVStringArray pvChannelName = pvTop.getSubField(PVStringArray.class,"channelName");
-            pvChannelName.put(0, nchannel,easyMultiChannel.getChannelNames(), 0);
+            pvChannelName.put(0, nchannel,pvaClientMultiChannel.getChannelNames(), 0);
             pvTimeStampStructure = pvTop.getSubField(PVStructure.class,"timeStamp");
             return true;
         }
@@ -194,7 +183,7 @@ public class  PvaClientMultiData {
             unionArrayData.data[i] = pvDataCreate.createPVUnion(union);
         }
         PVStringArray pvChannelName = pvTop.getSubField(PVStringArray.class,"channelName");
-        pvChannelName.put(0, nchannel,easyMultiChannel.getChannelNames(), 0);
+        pvChannelName.put(0, nchannel,pvaClientMultiChannel.getChannelNames(), 0);
         pvTimeStampStructure = pvTop.getSubField(PVStructure.class,"timeStamp");
         if(offsetToSeverity>=0) {
             pvSeverity = pvTop.getSubField(PVIntArray.class,"severity");
@@ -211,16 +200,16 @@ public class  PvaClientMultiData {
 
     /**
      * Set the introspection interface for the specified  channel.
-     * @param topStructure The interface.
-     * @param indChannel The index of the channel.
+     * @param structure The interface.
+     * @param index The index of the channel.
      */
-    void setStructure(Structure topStructure,int indChannel)
+    void setStructure(Structure structure,int index)
     {
         Field field = structure.getField("value");
         if(field==null) {
-            setStatus(statusCreate.createStatus(
-                    StatusType.ERROR,"channel " + channel[index].getChannelName()
-                    +" does not have top level value field",null));
+            String message = "channel " + channel[index].getChannelName()
+                    + " does not have top level value field";
+            throw new RuntimeException(message);
         } else {
             boolean success= true;
             if(doubleOnly) {
@@ -231,8 +220,9 @@ public class  PvaClientMultiData {
                     if(!scalar.getScalarType().isNumeric()) success = false;
                 }
                 if(!success) {
-                    setStatus(statusCreate.createStatus(
-                            StatusType.ERROR,"channel value is not a numeric scalar",null));
+                    String message = "channel " + channel[index].getChannelName()
+                            + " channel value is not a numeric scalar";
+                    throw new RuntimeException(message);
                 }
             } else {
                 if(!union.isVariant()) {
@@ -256,11 +246,12 @@ public class  PvaClientMultiData {
     }
     /**
      * Update the data for the specified channel.
-     * @param topPVStructure The newest data for the channel.
+     * This is called by pvaClientMultiYYY methods.
+     * @param pvStructure The newest data for the channel.
      * @param bitset The bitSet showing which fields have changed value.
      * @param indChannel The index of the channel.
      */
-    void setPVStructure(PVStructure topPVStructure,BitSet bitset,int indChannel)
+    void setPVStructure(PVStructure pvStructure,BitSet bitset,int index)
     {
         topPVStructure[index] = pvStructure;
         if(doubleOnly) {
@@ -286,9 +277,9 @@ public class  PvaClientMultiData {
      * Get the number of channels.
      * @return The number of channels.
      */
-    int getNumber()
+    public int getNumber()
     {
-        return number;
+        return nchannel;
     }
 
     /**
@@ -321,7 +312,7 @@ public class  PvaClientMultiData {
      * Get the time when the last get was made.
      * @return The timeStamp.
      */
-    TimeStamp getTimeStamp()
+    public TimeStamp getTimeStamp()
     {
         if(pvTimeStampStructure!=null) {
             pvTimeStamp.attach(pvTimeStampStructure);
@@ -333,7 +324,7 @@ public class  PvaClientMultiData {
      * Is value a double[] ?
      * @return The answer.
      */
-    boolean doubleOnly()
+    public boolean doubleOnly()
     {
         return doubleOnly;
     }
@@ -342,9 +333,9 @@ public class  PvaClientMultiData {
      * @return The value.
      * This is null if doubleOnly is true.
      */
-    PVStructure getNTMultiChannel()
+    public PVStructure getNTMultiChannel()
     {
-        if(doubleOnly) return null;
+        if(doubleOnly) throw new RuntimeException(" not NTMultiChannel");
         return pvTop;
     }
 
@@ -353,29 +344,32 @@ public class  PvaClientMultiData {
      * @return The top level structure.
      * This is null if doubleOnly is false.
      */
-    PVStructure getPVTop()
+    public PVStructure getPVTop()
     {
         return pvTop;
     }
     /**
-     * Return the value field.
+     * Return the data as a double array.
+     * Throws an exception if data is an NTMultiChannel.
      * @return The double[]
-     * This is null if doubleOnly is false.
      */
-    double[] getDoubleArray()
+    public double[] getDoubleArray()
     {
+        if(!doubleOnly) throw new RuntimeException("getDoubleArray is invalied because data is NTMultiChannel");
         return doubleValue;
     }
     /**
-     * Get the data from the value field.
+     * Get the data as a double array.
+     * Throws an exception if data is an NTMultiChannel.
      * @param offset The offset into the data of the value field.
      * @param data The place to copy the data.
      * @param length The number of elements to copy.
      * @return The number of elements copied.
      * This is 0 if doubleOnly is false.
      */
-    int getDoubleArray(int offset, double[]data,int length)
+    public int getDoubleArray(int offset, double[]data,int length)
     {
+        if(!doubleOnly) throw new RuntimeException("getDoubleArray is invalied because data is NTMultiChannel");
         int num = length;
         if(doubleValue.length-offset<length) num = doubleValue.length-offset;
         if(num<0) num =0;

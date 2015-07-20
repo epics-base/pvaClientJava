@@ -10,11 +10,11 @@ package org.epics.pvaClient;
  *
  */
 
-public interface PvaClientMonitorRequester {
+public interface PvaClientMultiMonitorRequester {
 
     /**
      * A monitor event has occurred.
-     * @param monitor The PvaClientMonitor that trapped the event.
+     * @param monitor The PvaClientMultiMonitor that trapped the event.
      */
-    public void event(PvaClientMonitor monitor);
+    public void event(PvaClientMultiMonitor monitor);
 }

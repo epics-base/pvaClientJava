@@ -26,33 +26,29 @@ import org.epics.pvdata.pv.Union;
  *
  */
 public class PvaClientMultiGet {
-    /**
-     * Create a new PvaClientMultiGet.
-     * @return The interface.
-     */
     static PvaClientMultiGet create(
-            PvaClientMultiChannel easyMultiChannel,
+            PvaClientMultiChannel pvaClientMultiChannel,
             Channel[] channel,
             PVStructure pvRequest,
             Union union)
     {
         PvaClientMultiGet multiGet = new PvaClientMultiGet(
-                easyMultiChannel,channel,pvRequest,union);
+                pvaClientMultiChannel,channel,pvRequest,union);
         if(multiGet.init()) return multiGet;
         return null;
     }
 
-    public PvaClientMultiGet(
-            PvaClientMultiChannel easyMultiChannel,
+    private PvaClientMultiGet(
+            PvaClientMultiChannel pvaClientMultiChannel,
             Channel[] channel,
             PVStructure pvRequest,
             Union union)
     {
-        this.easyMultiChannel = easyMultiChannel;
+        this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.channel = channel;
         this.pvRequest = pvRequest;
         nchannel = channel.length;
-        easyMultiData = easyMultiChannel.createEasyMultiData(pvRequest, union);
+        pvaClientMultiData = PvaClientMultiData.create(pvaClientMultiChannel, channel, pvRequest, union);
 
     }
 
@@ -69,10 +65,10 @@ public class PvaClientMultiGet {
             this.indChannel = indChannel;
         }
         public String getRequesterName() {
-            return multiGet.getRequesterName();
+            return multiGet.pvaClientMultiChannel.getPvaClient().getRequesterName();
         }
         public void message(String message, MessageType messageType) {
-            multiGet.message(message, messageType);
+            multiGet.pvaClientMultiChannel.getPvaClient().message(message, messageType);
         }
         public void channelGetConnect(Status status, ChannelGet channelGet,
                 Structure structure)
@@ -86,11 +82,11 @@ public class PvaClientMultiGet {
         }
     }
 
-    private final PvaClientMultiChannel easyMultiChannel;
+    private final PvaClientMultiChannel pvaClientMultiChannel;
     private final Channel[] channel;
     private final PVStructure pvRequest;
     private final int nchannel;
-    private final PvaClientMultiData easyMultiData;
+    private final PvaClientMultiData pvaClientMultiData;
 
     private ChannelGetRequesterPvt[] channelGetRequester = null;
     private volatile ChannelGet[] channelGet = null;
@@ -107,6 +103,7 @@ public class PvaClientMultiGet {
 
     // following used by get
     private volatile int numGet = 0;
+    private volatile int numGetCallback = 0;
     private volatile boolean badGet = false;
     private enum GetState {getIdle,getActive,getFailed,getDone};
     private volatile GetState getState = GetState.getIdle;
@@ -115,7 +112,6 @@ public class PvaClientMultiGet {
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition waitForConnect = lock.newCondition();
     private final Condition waitForGet = lock.newCondition();
-    private volatile Status status = statusCreate.getStatusOK();
 
     private boolean init()
     {
@@ -130,11 +126,82 @@ public class PvaClientMultiGet {
         }
         return true;
     }
+    
+    private void checkConnected()
+    {
+        if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
+        if(connectState==ConnectState.connectIdle) connect();
+    }
+
+    private void channelGetConnect(
+            Status status,
+            ChannelGet channelGet,
+            Structure structure,
+            int index)
+    {
+        if(isDestroyed) return;
+        this.channelGet[index] = channelGet;
+        if(status.isOK()) {  
+            if(!isGetConnected[index]) {
+                ++numGetConnected;
+                isGetConnected[index] = true;
+                pvaClientMultiData.setStructure(structure, index);
+            }
+        } else {
+            if(isGetConnected[index]) {
+                --numGetConnected;
+                isGetConnected[index] = false;
+                pvaClientMultiChannel.getPvaClient().message(status.getMessage(), MessageType.error);
+            }
+        }
+        if(connectState!=ConnectState.connectActive) return;
+        lock.lock();
+        try {
+            numConnectCallback++;
+            if(numConnectCallback==numGetToConnect) {
+                connectState = ConnectState.connectDone;
+                waitForConnect.signal();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+    private void getDone(
+            Status status,
+            ChannelGet channelGet,
+            PVStructure pvStructure,
+            BitSet bitSet,
+            int index)
+    {
+        if(isDestroyed) return;
+        if(status.isOK()) {
+            pvaClientMultiData.setPVStructure(pvStructure, bitSet, index);
+        } else {
+            badGet = true;
+            pvaClientMultiChannel.getPvaClient().message(
+                    "getDone " + channel[index].getChannelName() + " " +status.getMessage(),
+                    MessageType.error);
+        }
+        lock.lock();
+        try {
+            ++numGetCallback;
+            if(numGetCallback==numGet) {
+                if(badGet) {
+                    getState = GetState.getFailed;
+                } else {
+                    getState = GetState.getDone;
+                }
+                waitForGet.signal();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
 
     /**
      * Clean up
      */
-     void destroy()
+    public void destroy()
     {
         synchronized (this) {
             if(isDestroyed) return;
@@ -146,27 +213,25 @@ public class PvaClientMultiGet {
     }
      /**
       * Calls issueConnect and then waitConnect.
-      * @return (false,true) if (not connected, connected)
+      * If connection is not made an exception is thrown.
       */
-     boolean connect()
+     public void connect()
      {
          issueConnect();
-         return waitConnect();
+         Status status =  waitConnect();
+         if(!status.isOK()) throw new RuntimeException(status.getMessage());
      }
      /**
       * create the channelGet for all channels.
       */
-     void issueConnect()
+     public void issueConnect()
      {
-         if(isDestroyed) return;
+         if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
          if(connectState!=ConnectState.connectIdle) {
-             Status status = statusCreate.createStatus(
-                     StatusType.ERROR,"connect already issued",null);
-             setStatus(status);
-             return;
+             throw new RuntimeException("pvaClientMultiGet connect already issued");
          }
          numConnectCallback = 0;
-         if(easyMultiChannel.allConnected()) {
+         if(pvaClientMultiChannel.allConnected()) {
              numGetToConnect = channel.length;
          } else {
              for(int i=0; i<channel.length; ++i) {
@@ -182,114 +247,104 @@ public class PvaClientMultiGet {
      }
      /**
       * Wait until all channelGets are created.
-      * @return (false,true) if (not all connected, all connected)
+      * @return status of connection request.
       */
-     boolean waitConnect()
+     public Status waitConnect()
      {
-         if(isDestroyed) return false;
+         if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
          try {
              lock.lock();
              try {
                  if(numConnectCallback<numGetToConnect) waitForConnect.await();
              } catch(InterruptedException e) {
-                 Status status = statusCreate.createStatus(
-                         StatusType.ERROR,
-                         e.getMessage(),
-                         e.fillInStackTrace());
-                 setStatus(status);
-                 return false;
+                 return statusCreate.createStatus(
+                     StatusType.ERROR,"pvaClientMultiGet waitConnect exception " + e.getMessage(),
+                     e.fillInStackTrace());
              }
          } finally {
              lock.unlock();
          }
          if(numGetConnected!=numGetToConnect) {
-             Status status = statusCreate.createStatus(StatusType.ERROR," did not connect",null);
-             setStatus(status);
-             return false;
+             String message = "pvaClientMultiGet waitConnect";
+             message += " numGetConnected " + numGetConnected;
+             message += " but numGetToConnect "  + numGetToConnect;
+             return statusCreate.createStatus(StatusType.ERROR, message,null);
          }
-         return true;
+         return statusCreate.getStatusOK();
      }
      /**
-      * call issueGet and the waitGet.
-      * @return (false,true) if (failure, success)
+      * Call issueGet and then waitGet.
+      * An exception is thrown if get fails
+      * 
       */
-     boolean get()
+     public void get()
      {
          issueGet();
-         return waitGet();
+         Status status =  waitGet();
+         if(!status.isOK()) throw new RuntimeException("pvaClientMultiGet::get " +status.getMessage());
      }
 
      /**
       * Issue a get for each channel.
       */
-     void issueGet()
+     public void issueGet()
      {
-         if(isDestroyed) return;
+         if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
          checkConnected();
          if(getState!=GetState.getIdle) {
-             Status status = statusCreate.createStatus(
-                     StatusType.ERROR,"get already issued",null);
-             setStatus(status);
-             return;
-         }
-         boolean allConnected = true;
-         for(int i=0; i<nchannel; ++i) if(!channelGet[i].getChannel().isConnected()) allConnected = false;
-         if(!allConnected) {
-             badGet = true;
-             return;
+             throw new RuntimeException("pvaClientMultiGet::issueGet get already issued");
          }
          numGet = 0;
-         badGet = false;
+         numGetCallback = 0;
+         for(int i=0; i<nchannel; ++i) {
+             if(channelGet[i].getChannel().isConnected()) ++numGet;
+         }
          getState = GetState.getActive;
-         easyMultiData.startDeltaTime();
+         pvaClientMultiData.startDeltaTime();
          for(int i=0; i<nchannel; ++i){
-             channelGet[i].get();
+             if(channelGet[i].getChannel().isConnected()) channelGet[i].get();
          }
      }
      /**
       * wait until all gets are complete.
-      * @return (true,false) if (no errors, errors) resulted from gets.
-      * If an error occurred then getStatus returns a reason.
-      * @return (false,true) if (failure, success)
+      * @return status of get request.
       */
-     boolean waitGet()
+     public Status waitGet()
      {
-         if(isDestroyed) return false;
+         if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
          checkConnected();
          try {
              lock.lock();
              try {
                  if(getState==GetState.getActive) waitForGet.await();
              } catch(InterruptedException e) {
-                 Status status = statusCreate.createStatus(StatusType.ERROR, e.getMessage(), e.fillInStackTrace());
-                 setStatus(status);
-                 return false;
+                 return statusCreate.createStatus(
+                         StatusType.ERROR,"pvaClientMultiGet waitGet exception " + e.getMessage(),
+                         e.fillInStackTrace());
              }
          } finally {
              lock.unlock();
          }
          getState = GetState.getIdle;
          if(badGet) {
-             Status status = statusCreate.createStatus(StatusType.ERROR," get failed",null);
-             setStatus(status);
-             return false;
+             return statusCreate.createStatus(StatusType.ERROR,"pvaClientMultiGet waitGet get failed",null);
          }
-         easyMultiData.endDeltaTime();
-         return true;
+         pvaClientMultiData.endDeltaTime();
+         return statusCreate.getStatusOK();
      }
      /**
       * Get the time when the last get was made.
       * @return The timeStamp.
       */
-     TimeStamp getTimeStamp()
+     public TimeStamp getTimeStamp()
      {
-         return easyMultiData.getTimeStamp();
+         return pvaClientMultiData.getTimeStamp();
      }
      /**
       * Get the number of channels.
       * @return The number of channels.
       */
-     int getLength()
+     public int getLength()
      {
          return nchannel;
      }
@@ -297,41 +352,37 @@ public class PvaClientMultiGet {
       * Is value a double[] ?
       * @return The answer.
       */
-     boolean doubleOnly()
+     public boolean doubleOnly()
      {
-         return easyMultiData.doubleOnly();
+         return pvaClientMultiData.doubleOnly();
      }
      /**
       * Get the value field as a MTMultiChannel structure.
       * @return The value.
-      * This is null if doubleOnly is true.
       */
-     PVStructure getNTMultiChannel()
+     public PVStructure getNTMultiChannel()
      {
-         boolean result = checkGetState();
-         if(!result) return null;
-         return easyMultiData.getNTMultiChannel();
+         if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
+         return pvaClientMultiData.getNTMultiChannel();
      }
      /**
       * Get the top level structure of the value field is a double[[]
       * @return The top level structure.
-      * This is null if doubleOnly is false.
       */
-     PVStructure getPVTop()
+     public PVStructure getPVTop()
      {
-         checkGetState();
-         return easyMultiData.getPVTop();
+         if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
+         return pvaClientMultiData.getPVTop();
      }
      /**
       * Return the value field.
       * @return The double[]
       * This is null if doubleOnly is false.
       */
-     double[] getDoubleArray()
+     public double[] getDoubleArray()
      {
-         boolean result = checkGetState();
-         if(!result) return null;
-         return easyMultiData.getDoubleArray();
+         if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
+         return pvaClientMultiData.getDoubleArray();
      }
      /**
       * Get the data from the value field.
@@ -341,10 +392,9 @@ public class PvaClientMultiGet {
       * @return The number of elements copied.
       * This is 0 if doubleOnly is false.
       */
-     int getDoubleArray(int offset, double[]data,int length)
+     public int getDoubleArray(int offset, double[]data,int length)
      {
-         boolean result = checkGetState();
-         if(!result) return 0;
-         return easyMultiData.getDoubleArray(offset, data, length);
+         if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
+         return pvaClientMultiData.getDoubleArray(offset, data, length);
      }
 }

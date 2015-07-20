@@ -3,20 +3,28 @@
  */
 package org.epics.pvaClient;
 
-import org.epics.pvdata.property.Alarm;
-import org.epics.pvdata.property.*;
+import org.epics.pvdata.factory.ConvertFactory;
+import org.epics.pvdata.factory.PVDataFactory;
+import org.epics.pvdata.misc.BitSet;
+import org.epics.pvdata.pv.Convert;
+import org.epics.pvdata.pv.DoubleArrayData;
 import org.epics.pvdata.pv.PVArray;
+import org.epics.pvdata.pv.PVDataCreate;
+import org.epics.pvdata.pv.PVDouble;
+import org.epics.pvdata.pv.PVDoubleArray;
 import org.epics.pvdata.pv.PVField;
 import org.epics.pvdata.pv.PVScalar;
 import org.epics.pvdata.pv.PVScalarArray;
+import org.epics.pvdata.pv.PVStringArray;
 import org.epics.pvdata.pv.PVStructure;
-import org.epics.pvdata.pv.*;
-import org.epics.pvdata.misc.*;
-import org.epics.pvdata.factory.*;
-import org.epics.pvdata.factory.PVDataFactory;
+import org.epics.pvdata.pv.PostHandler;
+import org.epics.pvdata.pv.ScalarType;
+import org.epics.pvdata.pv.StringArrayData;
+import org.epics.pvdata.pv.Structure;
+import org.epics.pvdata.pv.Type;
 
 /**
- * This is a convenience wrapper for a PVStructure.
+ * This is a convenience wrapper for data for a channelPut or the put part of a channelPutGet.
  * @author mrk
  *
  */
@@ -25,7 +33,7 @@ public class PvaClientPutData {
         return new PvaClientPutData(structure);
     }
 
-    public PvaClientPutData(Structure structure)
+    private PvaClientPutData(Structure structure)
     {
         this.structure = structure;
         pvStructure = pvDataCreate.createPVStructure(structure);
@@ -92,7 +100,7 @@ public class PvaClientPutData {
      * Set a prefix for throw messages.
      * @param value The prefix.
      */
-    void setMessagePrefix(String value)
+    public void setMessagePrefix(String value)
     {
         messagePrefix = value + " ";
     }
@@ -100,7 +108,7 @@ public class PvaClientPutData {
     /** Get the structure.
      * @return the structure.
      */
-    Structure getStructure()
+    public Structure getStructure()
     {
         return structure;
     }
@@ -108,7 +116,7 @@ public class PvaClientPutData {
     /** Get the pvStructure.
      * @return the pvStructure.
      */
-    PVStructure getPVStructure()
+    public PVStructure getPVStructure()
     {
         return pvStructure;
     }
@@ -117,7 +125,7 @@ public class PvaClientPutData {
      * This shows which fields have changed value.
      * @return The bitSet
      */
-    BitSet getBitSet()
+    public BitSet getChangedBitSet()
     {
         return bitSet;
     }
@@ -126,7 +134,7 @@ public class PvaClientPutData {
      * Show fields that have changed value, i. e. all fields as shown by bitSet.
      * @return The changed fields.
      */
-    String showChanged()
+    public String showChanged()
     {
         String result = "";
         PVField pvField;
@@ -138,7 +146,7 @@ public class PvaClientPutData {
                 pvField = pvStructure.getSubField(nextSet);
             }
             result += pvField.getFullName() + " = " + pvField + "\n";
-            nextSet = bitSet.nextSetBit(nextSet);
+            nextSet = bitSet.nextSetBit(nextSet + 1);
         }
         return result;
     }
@@ -147,7 +155,7 @@ public class PvaClientPutData {
      * Is there a top level field named value of the PVstructure returned by channelGet?
      * @return The answer.
      */
-    boolean hasValue()
+    public boolean hasValue()
     {
         if(pvValue==null) return false;
         return true;
@@ -157,7 +165,7 @@ public class PvaClientPutData {
      * Is the value field a scalar?
      * @return The answer.
      */
-    boolean isValueScalar()
+    public boolean isValueScalar()
     {
         if(pvValue==null) return false;
         if(pvValue.getField().getType()==Type.scalar) return true;
@@ -168,7 +176,7 @@ public class PvaClientPutData {
      * Is the value field a scalar array?
      * @return The answer.
      */
-    boolean isValueScalarArray()
+    public boolean isValueScalarArray()
     {
         if(pvValue==null) return false;
         if(pvValue.getField().getType()==Type.scalarArray) return true;
@@ -179,7 +187,7 @@ public class PvaClientPutData {
      * Return the interface to the value field.
      * @return The interface or null if no top level value field.
      */
-    PVField getValue()
+    public PVField getValue()
     {
         checkValue();
         return pvValue;
@@ -189,7 +197,7 @@ public class PvaClientPutData {
      * Return the interface to a scalar value field.
      * @return Return the interface for a scalar value field or null if no scalar value field.
      */
-    PVScalar getScalarValue()
+    public PVScalar getScalarValue()
     {
         checkValue();
         PVScalar pv = pvStructure.getSubField(PVScalar.class,"value");
@@ -201,7 +209,7 @@ public class PvaClientPutData {
      * Return the interface to an array value field.
      * @return Return the interface or null if an array value field does not exist.
      */
-    PVArray getArrayValue()
+    public PVArray getArrayValue()
     {
 
         checkValue();
@@ -214,7 +222,7 @@ public class PvaClientPutData {
      * Return the interface to a scalar array value field.
      * @return Return the interface or null if a scalar array value field does not exist
      */
-    PVScalarArray getScalarArrayValue()
+    public PVScalarArray getScalarArrayValue()
     {
         checkValue();
         PVScalarArray pv = pvStructure.getSubField(PVScalarArray.class,"value");
@@ -226,7 +234,7 @@ public class PvaClientPutData {
      * Get the value as a double.
      * @return  If value is not a numeric scalar setStatus is called and 0 is returned.
      */
-    double getDouble()
+    public double getDouble()
     {
         PVScalar pvScalar = getScalarValue();
         ScalarType scalarType = pvScalar.getScalar().getScalarType();
@@ -244,7 +252,7 @@ public class PvaClientPutData {
      * Get the value as a string.
      * @return If value is not a scalar setStatus is called and 0 is returned.
      */
-    String getString()
+    public String getString()
     {
         PVScalar pvScalar = getScalarValue();
         return convert.toString(pvScalar);
@@ -254,7 +262,7 @@ public class PvaClientPutData {
      * Get the value as a double array.
      * @return If the value is not a numeric array null is returned. 
      */
-    double[] getDoubleArray()
+    public double[] getDoubleArray()
     {
         checkValue();
         PVDoubleArray pvDoubleArray = pvStructure.getSubField(
@@ -272,7 +280,7 @@ public class PvaClientPutData {
      * Get the value as a string array.
      * @return If the value is not a scalar array null is returned.
      */
-    String[] getStringArray()
+    public String[] getStringArray()
     {
         checkValue();
         PVStringArray pvStringArray = pvStructure.getSubField(
@@ -293,7 +301,7 @@ public class PvaClientPutData {
      * @param length The maximum number of elements to copy.
      * @return The number of elements copied.
      */
-    int getDoubleArray(double[] value,int length)
+    public int getDoubleArray(double[] value,int length)
     {
         checkValue();
         PVDoubleArray pvDoubleArray = pvStructure.getSubField(
@@ -314,7 +322,7 @@ public class PvaClientPutData {
      * @param length The maximum number of elements to copy.
      * @return The number of elements copied.
      */
-    int getStringArray(String[] value,int length)
+    public int getStringArray(String[] value,int length)
     {
         checkValue();
         PVStringArray pvStringArray = pvStructure.getSubField(
@@ -333,7 +341,7 @@ public class PvaClientPutData {
      * An exception is also thrown if the actualy type can cause an overflow.
      * If value is not a numeric scalar an exception is thrown.
      */
-    void putDouble(double value)
+    public void putDouble(double value)
     {
         PVScalar pvScalar = getScalarValue();
         ScalarType scalarType = pvScalar.getScalar().getScalarType();
@@ -350,7 +358,7 @@ public class PvaClientPutData {
      * Put the value as a string.
      * If value is not a  scalar an exception is thrown.
      */
-    void putString(String value)
+    public void putString(String value)
     {
          PVScalar pvScalar = getScalarValue();
          convert.fromString(pvScalar,value);
@@ -361,7 +369,7 @@ public class PvaClientPutData {
      * If the value field is not a double array field an exception is thrown.
      * @param value The place where data is copied.
      */
-    void putDoubleArray(double[] value)
+    public void putDoubleArray(double[] value)
     {
         checkValue();
         PVDoubleArray pv = pvStructure.getSubField(PVDoubleArray.class,"value");
@@ -373,7 +381,7 @@ public class PvaClientPutData {
      * If the value field is not a string array field an exception is thrown.
      * @param value data source
      */
-    void putStringArray(String[] value)
+    public void putStringArray(String[] value)
     {
         checkValue();
         PVStringArray pv = pvStructure.getSubField(PVStringArray.class,"value");

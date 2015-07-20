@@ -3,15 +3,32 @@
  */
 package org.epics.pvaClient;
 
-import org.epics.pvdata.property.*;
-import org.epics.pvdata.factory.*;
-import org.epics.pvdata.pv.*;
-import org.epics.pvdata.misc.*;
-
-import org.epics.pvaccess.client.*;
+import org.epics.pvdata.factory.ConvertFactory;
+import org.epics.pvdata.misc.BitSet;
+import org.epics.pvdata.property.Alarm;
+import org.epics.pvdata.property.PVAlarm;
+import org.epics.pvdata.property.PVAlarmFactory;
+import org.epics.pvdata.property.PVTimeStamp;
+import org.epics.pvdata.property.PVTimeStampFactory;
+import org.epics.pvdata.property.TimeStamp;
+import org.epics.pvdata.property.TimeStampFactory;
+import org.epics.pvdata.pv.Convert;
+import org.epics.pvdata.pv.DoubleArrayData;
+import org.epics.pvdata.pv.PVArray;
+import org.epics.pvdata.pv.PVDouble;
+import org.epics.pvdata.pv.PVDoubleArray;
+import org.epics.pvdata.pv.PVField;
+import org.epics.pvdata.pv.PVScalar;
+import org.epics.pvdata.pv.PVScalarArray;
+import org.epics.pvdata.pv.PVStringArray;
+import org.epics.pvdata.pv.PVStructure;
+import org.epics.pvdata.pv.ScalarType;
+import org.epics.pvdata.pv.StringArrayData;
+import org.epics.pvdata.pv.Structure;
+import org.epics.pvdata.pv.Type;
 
 /**
- * This is a convenience wrapper for a PVStructure.
+ * This is a convenience wrapper for data for a channelGet or the get part of a channelPutGet.
  * @author mrk
  *
  */
@@ -21,7 +38,7 @@ public class PvaClientGetData {
         return new PvaClientGetData(structure);
     }
 
-    public PvaClientGetData(Structure structure)
+    private PvaClientGetData(Structure structure)
     {
         this.structure = structure;
     }
@@ -62,15 +79,15 @@ public class PvaClientGetData {
      * Set a prefix for throw messages.
      * @param value The prefix.
      */
-    void setMessagePrefix(String value)
+    public void setMessagePrefix(String value)
     {
         messagePrefix = value + " ";
     }
 
     /** Get the structure.
-     * @return the structure.
+     * @return the introspection interface for the data..
      */
-    Structure getStructure()
+    public Structure getStructure()
     {
         return structure;
     }
@@ -78,7 +95,7 @@ public class PvaClientGetData {
     /** Get the pvStructure.
      * @return the pvStructure.
      */
-    PVStructure getPVStructure()
+    public PVStructure getPVStructure()
     {
         if(pvStructure!=null) return pvStructure;
         throw new RuntimeException(messagePrefix + noStructure);
@@ -88,7 +105,7 @@ public class PvaClientGetData {
      * This shows which fields have changed value.
      * @return The bitSet
      */
-    BitSet getBitSet()
+    public BitSet getChangedBitSet()
     {
         if(bitSet!=null) return bitSet;
         throw new RuntimeException(messagePrefix + noStructure);
@@ -98,7 +115,7 @@ public class PvaClientGetData {
      * Show fields that have changed value, i. e. all fields as shown by bitSet.
      * @return The changed fields.
      */
-    String showChanged()
+    public String showChanged()
     {
         if(bitSet==null) throw new RuntimeException(messagePrefix + noStructure);
         String result = "";
@@ -111,13 +128,14 @@ public class PvaClientGetData {
                 pvField = pvStructure.getSubField(nextSet);
             }
             result += pvField.getFullName() + " = " + pvField + "\n";
-            nextSet = bitSet.nextSetBit(nextSet);
+            nextSet = bitSet.nextSetBit(nextSet+1);
         }
         return result;
     }
 
     /**
      * New data is present.
+     * Called by pvaClientGet.
      * @param pvStructureFrom The new data.
      * @param bitSetFrom the bitSet showing which values have changed.
      */
@@ -134,7 +152,7 @@ public class PvaClientGetData {
      * Get the alarm for the last get.
      * @return The alarm.
      */
-    Alarm getAlarm()
+    public Alarm getAlarm()
     {
         if(pvStructure==null) throw new RuntimeException(messagePrefix + noStructure);
         PVStructure pvs = pvStructure.getSubField(PVStructure.class,"alarm");
@@ -152,7 +170,7 @@ public class PvaClientGetData {
      * Get the timeStamp for the last get.
      * @return The timeStamp.
      */
-    TimeStamp getTimeStamp()
+    public TimeStamp getTimeStamp()
     {
         if(pvStructure==null) throw new RuntimeException(messagePrefix + noStructure);
         PVStructure pvs = pvStructure.getSubField(PVStructure.class,"timeStamp");
@@ -170,7 +188,7 @@ public class PvaClientGetData {
      * Is there a top level field named value of the PVstructure returned by channelGet?
      * @return The answer.
      */
-    boolean hasValue()
+    public boolean hasValue()
     {
         if(pvValue==null) return false;
         return true;
@@ -180,7 +198,7 @@ public class PvaClientGetData {
      * Is the value field a scalar?
      * @return The answer.
      */
-    boolean isValueScalar()
+    public boolean isValueScalar()
     {
         if(pvValue==null) return false;
         if(pvValue.getField().getType()==Type.scalar) return true;
@@ -191,7 +209,7 @@ public class PvaClientGetData {
      * Is the value field a scalar array?
      * @return The answer.
      */
-    boolean isValueScalarArray()
+    public boolean isValueScalarArray()
     {
         if(pvValue==null) return false;
         if(pvValue.getField().getType()==Type.scalarArray) return true;
@@ -202,7 +220,7 @@ public class PvaClientGetData {
      * Return the interface to the value field.
      * @return The interface or null if no top level value field.
      */
-    PVField getValue()
+    public PVField getValue()
     {
         checkValue();
         return pvValue;
@@ -212,7 +230,7 @@ public class PvaClientGetData {
      * Return the interface to a scalar value field.
      * @return Return the interface for a scalar value field or null if no scalar value field.
      */
-    PVScalar getScalarValue()
+    public PVScalar getScalarValue()
     {
         checkValue();
         PVScalar pv = pvStructure.getSubField(PVScalar.class,"value");
@@ -224,7 +242,7 @@ public class PvaClientGetData {
      * Return the interface to an array value field.
      * @return Return the interface or null if an array value field does not exist.
      */
-    PVArray getArrayValue()
+    public PVArray getArrayValue()
     {
 
         checkValue();
@@ -237,7 +255,7 @@ public class PvaClientGetData {
      * Return the interface to a scalar array value field.
      * @return Return the interface or null if a scalar array value field does not exist
      */
-    PVScalarArray getScalarArrayValue()
+    public PVScalarArray getScalarArrayValue()
     {
         checkValue();
         PVScalarArray pv = pvStructure.getSubField(PVScalarArray.class,"value");
@@ -247,9 +265,9 @@ public class PvaClientGetData {
 
     /**
      * Get the value as a double.
-     * @return  If value is not a numeric scalar setStatus is called and 0 is returned.
+     * @return  If value is not a numeric scalar an exception is thrown.
      */
-    double getDouble()
+    public double getDouble()
     {
         PVScalar pvScalar = getScalarValue();
         ScalarType scalarType = pvScalar.getScalar().getScalarType();
@@ -265,9 +283,9 @@ public class PvaClientGetData {
 
     /**
      * Get the value as a string.
-     * @return If value is not a scalar setStatus is called and 0 is returned.
+     * @return The value.
      */
-    String getString()
+    public String getString()
     {
         PVScalar pvScalar = getScalarValue();
         return convert.toString(pvScalar);
@@ -275,9 +293,9 @@ public class PvaClientGetData {
 
     /**
      * Get the value as a double array.
-     * @return If the value is not a numeric array null is returned. 
+     * @return If the value is not a numeric array an exception is thrown. 
      */
-    double[] getDoubleArray()
+    public double[] getDoubleArray()
     {
         checkValue();
         PVDoubleArray pvDoubleArray = pvStructure.getSubField(
@@ -293,9 +311,9 @@ public class PvaClientGetData {
 
     /**
      * Get the value as a string array.
-     * @return If the value is not a scalar array null is returned.
+     * @return If the value is not a scalar array an exception is thrown.
      */
-    String[] getStringArray()
+    public String[] getStringArray()
     {
         checkValue();
         PVStringArray pvStringArray = pvStructure.getSubField(
@@ -316,7 +334,7 @@ public class PvaClientGetData {
      * @param length The maximum number of elements to copy.
      * @return The number of elements copied.
      */
-    int getDoubleArray(double[] value,int length)
+    public int getDoubleArray(double[] value,int length)
     {
         checkValue();
         PVDoubleArray pvDoubleArray = pvStructure.getSubField(
@@ -332,12 +350,12 @@ public class PvaClientGetData {
 
     /**
      * Copy a sub-array of the value field into value.
-     * If the value field is not a scalar array field no elements are copied.
+     * If the value field is not a scalar array field an exception is thrown.
      * @param value The place where data is copied.
      * @param length The maximum number of elements to copy.
      * @return The number of elements copied.
      */
-    int getStringArray(String[] value,int length)
+    public int getStringArray(String[] value,int length)
     {
         checkValue();
         PVStringArray pvStringArray = pvStructure.getSubField(

@@ -36,50 +36,99 @@ import org.epics.pvdata.pv.UnionArrayData;
  * @author mrk
  *
  */
-public class PvaClientMultiPut implements ChannelPutRequester {
+public class PvaClientMultiPut {
     /**
      * Create a new PvaClientMultiPut.
      * @return The interface.
      */
     static PvaClientMultiPut create(
-            PvaClientMultiChannel easyMultiChannel,
+            PvaClientMultiChannel pvaClientMultiChannel,
             Channel[] channel,
             boolean doubleOnly)
     {
-        PvaClientMultiPut multiPut =   new PvaClientMultiPut(
-                easyMultiChannel,channel,doubleOnly);
-        if(multiPut.init()) return multiPut;
-        return null;
+        return new PvaClientMultiPut(pvaClientMultiChannel,channel,doubleOnly);
     }
-    PvaClientMultiPut(
-            PvaClientMultiChannel easyMultiChannel,
+
+    private PvaClientMultiPut(
+            PvaClientMultiChannel pvaClientMultiChannel,
             Channel[] channel,
             Boolean doubleOnly)
-            {
-        this.easyMultiChannel = easyMultiChannel;
+   {
+        this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.channel = channel;
         this.doubleOnly = doubleOnly;
         nchannel = channel.length;
+        channelPutRequester = new ChannelPutRequesterPvt[nchannel];
         isConnected = new boolean[nchannel];
-        for(int i=0; i<nchannel; ++i) isConnected[i] = false;
-            }
+        channelPut = new ChannelPut[nchannel];
+        topPVStructure = new PVStructure[nchannel];
+        putBitSet = new BitSet[nchannel];
+        for(int i=0; i<nchannel; ++i) {
+            channelPutRequester[i] = new ChannelPutRequesterPvt(this,i);
+            isConnected[i] = false;
+            channelPut[i] = null;
+            if(channel[i].isConnected()) ++numPutToConnect;
+        }
+        pvaClientMultiGet = pvaClientMultiChannel.createGet(doubleOnly, "field(value)");
+    }
+
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
+    
+    private static class ChannelPutRequesterPvt implements ChannelPutRequester
+    {
+        private final PvaClientMultiPut multiPut;
+        private final int indChannel;
+
+        ChannelPutRequesterPvt(PvaClientMultiPut multiPut,int indChannel)
+        {
+            this.multiPut = multiPut;
+            this.indChannel = indChannel;
+        }
+        public String getRequesterName() {
+            return multiPut.pvaClientMultiChannel.getPvaClient().getRequesterName();
+        }
+        public void message(String message, MessageType messageType) {
+            multiPut.pvaClientMultiChannel.getPvaClient().message(message, messageType);
+        }
+        
+        @Override
+        public void channelPutConnect(Status status, ChannelPut channelPut,
+                Structure structure)
+        {
+            multiPut.channelPutConnect(status,channelPut,structure,indChannel);
+            
+        }
+        @Override
+        public void putDone(Status status, ChannelPut channelPut) {
+            multiPut.putDone(status,channelPut,indChannel);
+            
+        }
+        @Override
+        public void getDone(Status status, ChannelPut channelPut,
+                PVStructure pvStructure, BitSet bitSet) {
+            multiPut.getDone(status,channelPut,pvStructure,bitSet,indChannel);
+            
+        }
+    }
+    
     private static final Convert convert = ConvertFactory.getConvert();
     private static final PVDataCreate pvDataCreate = PVDataFactory.getPVDataCreate();
-    private final PvaClientMultiChannel easyMultiChannel;
+    
+    private final PvaClientMultiChannel pvaClientMultiChannel;
     private final Channel[] channel;
     private boolean doubleOnly;
     private final int nchannel;
 
     // following initialized by init and 
-
+    private ChannelPutRequesterPvt[] channelPutRequester = null;
     private volatile PVStructure[] topPVStructure = null;
     private volatile BitSet[] putBitSet = null;
     private volatile ChannelPut[] channelPut = null;
-    private PvaClientMultiGet easyMultiGet = null;
+    private PvaClientMultiGet pvaClientMultiGet = null;
 
 
     // following used by connect
+    private volatile int numPutToConnect = 0;
     private volatile int numConnectCallback = 0;
     private volatile int numConnected = 0;
     private volatile boolean[] isConnected = null;
@@ -88,6 +137,7 @@ public class PvaClientMultiPut implements ChannelPutRequester {
 
     // following used by put
     private volatile int numPut = 0;
+    private volatile int numPutCallback = 0;
     private volatile boolean badPut = false;
     private volatile boolean illegalPut = false;
     private enum PutState {putIdle,putActive,putFailed,putDone};
@@ -98,55 +148,22 @@ public class PvaClientMultiPut implements ChannelPutRequester {
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition waitForConnect = lock.newCondition();
     private final Condition waitForPut = lock.newCondition();
-    private volatile Status status = statusCreate.getStatusOK();
     private volatile UnionArrayData unionArrayData = new UnionArrayData();
 
-    private boolean init()
-    {
-        channelPut = new ChannelPut[nchannel];
-        topPVStructure = new PVStructure[nchannel];
-        easyMultiGet = easyMultiChannel.createGet(doubleOnly, "field(value)");
-        putBitSet = new BitSet[nchannel];
-        return true;
-    }
-
     private void checkConnected() {
+        if(isDestroyed) throw new RuntimeException("pvaClientMultiPut was destroyed");
         if(connectState==ConnectState.connectIdle) connect();
     }
 
-    /* (non-Javadoc)
-     * @see org.epics.pvdata.pv.Requester#getRequesterName()
-     */
-    @Override
-    public String getRequesterName() {
-        return easyMultiChannel.getRequesterName();
-    }
-
-    /* (non-Javadoc)
-     * @see org.epics.pvdata.pv.Requester#message(java.lang.String, org.epics.pvdata.pv.MessageType)
-     */
-    @Override
-    public void message(String message, MessageType messageType) {
+   
+    private void channelPutConnect(
+            Status status,
+            ChannelPut channelPut,
+            Structure structure,
+            int index)
+    {
         if(isDestroyed) return;
-        easyMultiChannel.message(message, messageType);
-    }
-
-    /* (non-Javadoc)
-     * @see org.epics.pvaccess.client.ChannelPutRequester#channelPutConnect(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelPut, org.epics.pvdata.pv.Structure)
-     */
-    @Override
-    public void channelPutConnect(Status status, ChannelPut channelPut,Structure structure) {
-        if(isDestroyed) return;
-        int index = -1;
-        for(int i=0; i<channel.length; ++i) {
-            if(easyMultiChannel.getChannelNames()[i].equals(channelPut.getChannel().getChannelName())) {
-                index = i;
-                break;
-            }
-        }
-        if(index<0) {
-            throw new IllegalStateException("should not happen");
-        }
+        
         this.channelPut[index] = channelPut;
         if(status.isOK()) {
             if(!isConnected[index]) {
@@ -156,9 +173,9 @@ public class PvaClientMultiPut implements ChannelPutRequester {
                 putBitSet[index] = new BitSet(topPVStructure[index].getNumberFields());
                 Field field = structure.getField("value");
                 if(field==null) {
-                    setStatus(statusCreate.createStatus(
-                            StatusType.ERROR,"channel " + channel[index].getChannelName()
-                            +" does not have top level value field",null));
+                    String message = "channel " + channel[index].getChannelName()
+                            +" does not have top level value field";
+                    throw new RuntimeException(message);
                 } else {
                     boolean success= true;
                     if(doubleOnly) {
@@ -169,8 +186,9 @@ public class PvaClientMultiPut implements ChannelPutRequester {
                             if(!scalar.getScalarType().isNumeric()) success = false;
                         }
                         if(!success) {
-                            setStatus(statusCreate.createStatus(
-                                    StatusType.ERROR,"channel value is not a numeric scalar",null));
+                            String message = "channel " + channel[index].getChannelName()
+                                    +"  value  is not a numeric scalar";
+                            throw new RuntimeException(message);
                         }
                     }
                 }
@@ -179,14 +197,16 @@ public class PvaClientMultiPut implements ChannelPutRequester {
             if(isConnected[index]) {
                 --numConnected;
                 isConnected[index] = false;
-                setStatus(status);
+                String message = "channel " + channel[index].getChannelName()
+                        +" is not connected";
+                throw new RuntimeException(message);
             }
         }
         if(connectState!=ConnectState.connectActive) return;
         lock.lock();
         try {
             numConnectCallback++;
-            if(numConnectCallback==nchannel) {
+            if(numConnectCallback==numPutToConnect) {
                 connectState = ConnectState.connectDone;
                 waitForConnect.signal();
             }
@@ -195,28 +215,16 @@ public class PvaClientMultiPut implements ChannelPutRequester {
         }
     }
 
-    /* (non-Javadoc)
-     * @see org.epics.pvaccess.client.ChannelPutRequester#putDone(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelPut)
-     */
-    @Override
-    public void putDone(Status status, ChannelPut channelPut) {
-        int index = -1;
-        for(int i=0; i<channel.length; ++i) {
-            if(easyMultiChannel.getChannelNames()[i].equals(channelPut.getChannel().getChannelName())) {
-                index = i;
-                break;
-            }
-        }
-        if(index<0) {
-            throw new IllegalStateException("should not happen");
-        }
+    private void putDone(Status status, ChannelPut channelPut,int index)
+    {
+       
         if(!status.isOK()) {
             badPut = true;
         }
         lock.lock();
         try {
-            ++numPut;
-            if(numPut==nchannel) {
+            ++numPutCallback;
+            if(numPutCallback==numPut) {
                 if(badPut) {
                     putState = PutState.putFailed;
                 } else {
@@ -228,12 +236,16 @@ public class PvaClientMultiPut implements ChannelPutRequester {
             lock.unlock();
         }
     }
-    /* (non-Javadoc)
-     * @see org.epics.pvaccess.client.ChannelPutRequester#getDone(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelPut, org.epics.pvdata.pv.PVStructure, org.epics.pvdata.misc.BitSet)
-     */
-    @Override
-    public void getDone(Status status, ChannelPut channelPut,PVStructure pvStructure, BitSet bitSet) {
-        // using EasyMultiGet so this not used.
+   
+   
+    private void getDone(
+        Status status,
+        ChannelPut channelPut,
+        PVStructure pvStructure,
+        BitSet bitSet,
+        int index)
+    {
+        //  not used.
 
     }
 
@@ -242,13 +254,13 @@ public class PvaClientMultiPut implements ChannelPutRequester {
     /**
      * Clean up
      */
-    void destroy()
+    public void destroy()
     {
         synchronized (this) {
             if(isDestroyed) return;
             isDestroyed = true;
         }
-        easyMultiGet.destroy();
+        pvaClientMultiGet.destroy();
         for(int i=0; i<nchannel; ++i) {
             if(channelPut[i]!=null) channelPut[i].destroy();
         }
@@ -256,90 +268,89 @@ public class PvaClientMultiPut implements ChannelPutRequester {
 
     /**
      * Calls issueConnect and then waitConnect.
-     * @return (false,true) if (failure, success)
+     * If connection is not made an exception is thrown.
      */
-    boolean connect()
+    public void connect()
     {
         issueConnect();
-        return waitConnect();
+        Status status = waitConnect();
+        if(!status.isOK()) throw new RuntimeException(status.getMessage());
     }
 
     /**
      * create the channelPut for all channels.
      */
-    void issueConnect()
+    public void issueConnect()
     {
-        if(isDestroyed) return;
+        if(isDestroyed) throw new RuntimeException("pvaClientMultiPut was destroyed");
         if(connectState!=ConnectState.connectIdle) {
-            Status status = statusCreate.createStatus(
-                    StatusType.ERROR,"connect already issued",null);
-            setStatus(status);
-            return;
+            throw new RuntimeException("pvaClientMultiPut connect already issued");
         }
         numConnectCallback = 0;
+        if(pvaClientMultiChannel.allConnected()) {
+            numPutToConnect = channel.length;
+        } else {
+            for(int i=0; i<channel.length; ++i) {
+                if(channel[i].isConnected()) numPutToConnect++;
+            }
+        }
         connectState = ConnectState.connectActive;
-        for(int i=0; i<channel.length; ++i) channelPut[i] = channel[i].createChannelPut(this, pvRequest);
+        for(int i=0; i<channel.length; ++i) channelPut[i] = channel[i].createChannelPut(
+                channelPutRequester[i], pvRequest);
     }
     /**
      * Wait until all channelPuts are created.
-     * @return (false,true) if (failure, success)
+     * @return status of connection request.
      */
-    boolean waitConnect()
+    public Status waitConnect()
     {
-        if(isDestroyed) return false;
+        if(isDestroyed) throw new RuntimeException("pvaClientMultiPut was destroyed");
         try {
             lock.lock();
             try {
                 if(numConnectCallback<nchannel) waitForConnect.await();
             } catch(InterruptedException e) {
-                Status status = statusCreate.createStatus(
-                        StatusType.ERROR,
-                        e.getMessage(),
+                return statusCreate.createStatus(
+                        StatusType.ERROR,"pvaClientMultiPut waitConnect exception " + e.getMessage(),
                         e.fillInStackTrace());
-                setStatus(status);
-                return false;
             }
         } finally {
             lock.unlock();
         }
-        if(numConnected!=nchannel) {
-            Status status = statusCreate.createStatus(StatusType.ERROR," did not connect",null);
-            setStatus(status);
-            return false;
+        if(numConnected!=numPutToConnect) {
+            return statusCreate.createStatus(StatusType.ERROR," did not connect",null);
         }
-        return true;
+        return statusCreate.getStatusOK();
     }
     /**
      * call issueGet and the waitGet.
-     * @return (false,true) if (failure, success)
+     * An exception is thrown if get fails
      */
-    boolean get()
+    public void get()
     {
-        return easyMultiGet.get();
+        pvaClientMultiGet.get();
     }
     /**
      * Issue a get for each channel.
      */
-    void issueGet()
+    public void issueGet()
     {
-        easyMultiGet.issueGet();
+        pvaClientMultiGet.issueGet();
     }
 
     /**
      * wait until all gets are complete.
-     * @return (true,false) if (no errors, errors) resulted from gets.
-     * If an error occurred then getStatus returns a reason.
-     * @return (false,true) if (failure, success)
+     * @return status of get request.
      */
-    boolean waitGet()
+    public Status waitGet()
     {
-        return easyMultiGet.waitGet();
+        return pvaClientMultiGet.waitGet();
     }
     /**
      * Get the number of channels.
      * @return The number of channels.
      */
-    int getLength()
+    public int getLength()
     {
         return nchannel;
     }
@@ -347,37 +358,34 @@ public class PvaClientMultiPut implements ChannelPutRequester {
      * Is value a double[] ?
      * @return The answer.
      */
-    boolean doubleOnly()
+    public boolean doubleOnly()
     {
         return doubleOnly;
     }
     /**
      * Get the value field as a MTMultiChannel structure.
      * @return The value.
-     * This is null if doubleOnly is true.
      */
-    PVStructure getNTMultiChannel()
+    public PVStructure getNTMultiChannel()
     {
         if(doubleOnly) return null;
-        return easyMultiGet.getNTMultiChannel();
+        return pvaClientMultiGet.getNTMultiChannel();
     }
     /**
      * Get the top level structure of the value field as a double[[]
      * @return The top level structure.
-     * This is null if doubleOnly is false.
      */
-    PVStructure getPVTop()
+    public PVStructure getPVTop()
     {
-        return easyMultiGet.getPVTop();
+        return pvaClientMultiGet.getPVTop();
     }
     /**
      * Return the value field.
      * @return The double[]
-     * This is null if doubleOnly is false.
      */
-    double[] getDoubleArray()
+    public double[] getDoubleArray()
     {
-        return easyMultiGet.getDoubleArray();
+        return pvaClientMultiGet.getDoubleArray();
     }
     /**
      * Get the data from the value field.
@@ -387,26 +395,27 @@ public class PvaClientMultiPut implements ChannelPutRequester {
      * @return The number of elements copied.
      * This is 0 if doubleOnly is false.
      */
-    int getDoubleArray(int offset, double[]data,int length)
+    public int getDoubleArray(int offset, double[]data,int length)
     {
-        return easyMultiGet.getDoubleArray(index,data,length);
+        return pvaClientMultiGet.getDoubleArray(offset,data,length);
     }
 
     /**
      * Call issuePut and then waitPut.
      * @param pvNTMultiChannel The pvStructure for an NTMultiChannel.
-     * @return (false,true) means (failure,success)
+     * An exception is thrown if put fails.
      */
-    boolean put(PVStructure pvNTMultiChannel)
+    public void put(PVStructure pvNTMultiChannel)
     {
         issuePut(pvNTMultiChannel);
-        return waitPut();
+        Status status = waitPut();
+        if(!status.isOK()) throw new RuntimeException("pvaClientMultiPut::put " +status.getMessage());
     }
     /**
      * Put the value field as a NTMultiChannel.
      * @param pvNTMultiChannel The pvStructure for an NTMultiChannel.
      */
-    void issuePut(PVStructure pvNTMultiChannel)
+    public void issuePut(PVStructure pvNTMultiChannel)
     {
         if(doubleOnly) {
             illegalPut = true;
@@ -414,10 +423,7 @@ public class PvaClientMultiPut implements ChannelPutRequester {
         }
         checkConnected();
         if(putState!=PutState.putIdle) {
-            Status status = statusCreate.createStatus(
-                    StatusType.ERROR,"put already issued",null);
-            setStatus(status);
-            return;
+            throw new RuntimeException("pvaClientMultiPut put already issued");
         }
         boolean allConnected = true;
         for(int i=0; i<nchannel; ++i) if(!channelPut[i].getChannel().isConnected()) allConnected = false;
@@ -427,11 +433,16 @@ public class PvaClientMultiPut implements ChannelPutRequester {
         }
         illegalPut = false;
         numPut = 0;
+        numPutCallback = 0;
+        for(int i=0; i<nchannel; ++i) {
+            if(channelPut[i].getChannel().isConnected()) ++numPut;
+        }
         badPut = false;
         putState = PutState.putActive;
         PVUnionArray pvArray = pvNTMultiChannel.getUnionArrayField("value");
         pvArray.get(0, nchannel, unionArrayData);
         for(int i=0; i<nchannel; ++i) {
+            if(!channelPut[i].getChannel().isConnected()) continue;
             PVStructure top = topPVStructure[i];
             PVField pvTo = top.getSubField("value");
             PVUnion pvUnion = unionArrayData.data[i];
@@ -442,27 +453,26 @@ public class PvaClientMultiPut implements ChannelPutRequester {
                 putBitSet[i].set(0);
                 channelPut[i].put(top, putBitSet[i]);
             } else {
-                String message = "channel " + channel[i].getChannelName();
-                message += " can not copy value";
-                setStatus(statusCreate.createStatus(StatusType.ERROR,message,null));
+                throw new RuntimeException("pvaClientMultiPut can not copy value");
             }
         }
     }
     /**
      * Call issuePut and then waitPut.
      * @param value The value for each channel.
-     * @return (false,true) means (failure,success)
+     * An exception is thrown if put fails.
      */
-    boolean put(double[] value)
+    public void put(double[] value)
     {
         issuePut(value);
-        return waitPut();
+        Status status = waitPut();
+        if(!status.isOK()) throw new RuntimeException("pvaClientMultiPut::put " +status.getMessage());
     }
     /**
      * Put the value field as a double array.
      * @param value The value for each channel.
      */
-    void issuePut(double[] value)
+    public void issuePut(double[] value)
     {
         if(!doubleOnly) {
             illegalPut = true;
@@ -470,10 +480,7 @@ public class PvaClientMultiPut implements ChannelPutRequester {
         }
         checkConnected();
         if(putState!=PutState.putIdle) {
-            Status status = statusCreate.createStatus(
-                    StatusType.ERROR,"put already issued",null);
-            setStatus(status);
-            return;
+            throw new RuntimeException("pvaClientMultiPut put already issued");
         }
         boolean allConnected = true;
         for(int i=0; i<nchannel; ++i) if(!channelPut[i].getChannel().isConnected()) allConnected = false;
@@ -483,9 +490,14 @@ public class PvaClientMultiPut implements ChannelPutRequester {
         }
         illegalPut = false;
         numPut = 0;
+        numPutCallback = 0;
+        for(int i=0; i<nchannel; ++i) {
+            if(channelPut[i].getChannel().isConnected()) ++numPut;
+        }
         badPut = false;
         putState = PutState.putActive;
         for(int i=0; i<nchannel; ++i) {
+            if(!channelPut[i].getChannel().isConnected()) continue;
             PVStructure top = topPVStructure[i];
             PVScalar pvScalar = top.getSubField(PVScalar.class,"value");
             convert.fromDouble(pvScalar,value[i]);
@@ -497,36 +509,31 @@ public class PvaClientMultiPut implements ChannelPutRequester {
     /**
      * Wait for the put to complete.
      * 
-     * @return (true,false) if (no errors, errors) resulted from puts.
-     * If an error occurred then getStatus returns a reason.
+     * @return status of put request.
      */
-    boolean waitPut()
+    public Status waitPut()
     {
-        if(isDestroyed) return false;
+        if(isDestroyed) throw new RuntimeException("pvaClientMultiPut was destroyed");
         checkConnected();
         if(illegalPut) {
-            Status status = statusCreate.createStatus(StatusType.ERROR,"illegal put request", null);
-            setStatus(status);
-            return false;
+            throw new RuntimeException("pvaClientMultiPut illegal put request");
         }
         try {
             lock.lock();
             try {
                 if(putState==PutState.putActive) waitForPut.await();
             } catch(InterruptedException e) {
-                Status status = statusCreate.createStatus(StatusType.ERROR, e.getMessage(), e.fillInStackTrace());
-                setStatus(status);
-                return false;
+                return statusCreate.createStatus(
+                        StatusType.ERROR,"pvaClientMultiPut waitPut exception " + e.getMessage(),
+                        e.fillInStackTrace());
             }
         } finally {
             lock.unlock();
         }
         putState = PutState.putIdle;
         if(badPut) {
-            Status status = statusCreate.createStatus(StatusType.ERROR," put failed",null);
-            setStatus(status);
-            return false;
+            return statusCreate.createStatus(StatusType.ERROR," put failed",null);
         }
-        return true;
+        return statusCreate.getStatusOK();
     }
 }

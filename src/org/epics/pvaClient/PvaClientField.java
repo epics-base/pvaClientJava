@@ -3,12 +3,11 @@
  */
 package org.epics.pvaClient;
 
-import org.epics.pvdata.pv.Field;
-import org.epics.pvdata.pv.*;
-
-import org.epics.pvaccess.client.*;
+import org.epics.pvaccess.client.Channel;
+import org.epics.pvdata.pv.PVStructure;
 /**
  * An easy to use alternative to directly calling the Channel::getField.
+ * NOT implemented.
  * @author mrk
  *
  */
@@ -16,6 +15,7 @@ public class PvaClientField
 {
     /**
      * Create new PvaClientField.
+     * NOT implemented.
      * @return The interface.
      */
     static PvaClientField create(

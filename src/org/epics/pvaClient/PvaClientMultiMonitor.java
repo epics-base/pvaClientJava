@@ -22,36 +22,32 @@ import org.epics.pvdata.pv.Union;
 
 
 /**
- * An easy way to get data from multiple channels.
+ * An easy way to monitor data from multiple channels.
  * @author mrk
  *
  */
 public class PvaClientMultiMonitor {
 
-    /**
-     * Create a new PvaClientMultiMonitor.
-     * @return The interface.
-     */
     static PvaClientMultiMonitor create(
-            PvaClientMultiChannel easyMultiChannel,
+            PvaClientMultiChannel pvaClientMultiChannel,
             Channel[] channel,
             PVStructure pvRequest,
             Union union)
     {
-        return new PvaClientMultiMonitor(easyMultiChannel,channel,pvRequest,union);
+        return new PvaClientMultiMonitor(pvaClientMultiChannel,channel,pvRequest,union);
     }
 
-    public PvaClientMultiMonitor(
-            PvaClientMultiChannel easyMultiChannel,
+    private PvaClientMultiMonitor(
+            PvaClientMultiChannel pvaClientMultiChannel,
             Channel[] channel,
             PVStructure pvRequest,
             Union union)
     {
-        this.easyMultiChannel = easyMultiChannel;
+        this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.channel = channel;
         this.pvRequest = pvRequest;
         nchannel = channel.length;
-        isMonitorConnected = new boolean[nchannel]
+        isMonitorConnected = new boolean[nchannel];
         monitorRequester = new MonitorRequesterPvt[nchannel];
         monitor = new Monitor[nchannel];
         monitorElement = new MonitorElement[nchannel];
@@ -61,14 +57,11 @@ public class PvaClientMultiMonitor {
             monitorElement[i] = null;
             if(channel[i].isConnected()) ++numMonitorToConnect;
         }
-        easyMultiData = easyMultiChannel.createEasyMultiData(pvRequest, union);
+        pvaClientMultiData = PvaClientMultiData.create(pvaClientMultiChannel, channel, pvRequest, union);
 
     }
     
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
-    private static final Status clientNotActive = statusCreate.createStatus(
-            StatusType.ERROR,"method can only be called between poll and release",null);
-
     private static class MonitorRequesterPvt implements MonitorRequester
     {
         private final PvaClientMultiMonitor multiMonitor;
@@ -80,13 +73,15 @@ public class PvaClientMultiMonitor {
             this.indChannel = indChannel;
         }
         public String getRequesterName() {
-            return multiMonitor.getRequesterName();
+            return multiMonitor.pvaClientMultiChannel.getPvaClient().getRequesterName();
         }
         public void message(String message, MessageType messageType) {
-            multiMonitor.message(message, messageType);
+            multiMonitor.pvaClientMultiChannel.getPvaClient().message(message, messageType);
         }
-        public void monitorConnect(Status status, Monitor monitor,
-                Structure structure)
+        public void monitorConnect(
+            Status status,
+            Monitor monitor,
+            Structure structure)
         {
             multiMonitor.monitorConnect(status,monitor,structure,indChannel);   
         }
@@ -97,16 +92,16 @@ public class PvaClientMultiMonitor {
         public void unlisten(Monitor monitor){
             multiMonitor.lostChannel(indChannel);
         }
-
     }
-    private final PvaClientMultiChannel easyMultiChannel;
+    
+    private final PvaClientMultiChannel pvaClientMultiChannel;
     private final Channel[] channel;
     private final PVStructure pvRequest;
     private final int nchannel;
-    private final PvaClientMultiData easyMultiData;
+    private final PvaClientMultiData pvaClientMultiData;
 
     private MonitorRequesterPvt[] monitorRequester = null;
-    private EasyMultiRequester multiRequester = null;
+    private PvaClientMultiMonitorRequester multiRequester = null;
     private volatile Monitor[] monitor = null;
     private volatile MonitorElement[] monitorElement= null;
 
@@ -127,16 +122,84 @@ public class PvaClientMultiMonitor {
     private final TimeStamp timeStampLatest = TimeStampFactory.create();
 
     private volatile boolean isDestroyed = false;
-    private final ReentrantLock connectLock = new ReentrantLock();
-    private final ReentrantLock monitorLock = new ReentrantLock();
-    private final Condition waitForConnect = connectLock.newCondition();
-    private volatile Status status = statusCreate.getStatusOK();
-
-
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition waitForConnect = lock.newCondition();
+ 
+    private void monitorConnect(
+            Status status,
+            Monitor monitor,
+            Structure structure,
+            int index)
+    {
+        if(isDestroyed) return;
+        this.monitor[index] = monitor;
+        if(status.isOK()) {  
+            if(!isMonitorConnected[index]) {
+                ++numMonitorConnected;
+                isMonitorConnected[index] = true;
+                pvaClientMultiData.setStructure(structure, index);
+            }
+        } else {
+            if(isMonitorConnected[index]) {
+                --numMonitorConnected;
+                isMonitorConnected[index] = false;
+                pvaClientMultiChannel.getPvaClient().message(status.getMessage(), MessageType.error);
+            }
+        }
+        if(connectState!=ConnectState.connectActive) return;
+        lock.lock();
+        try {
+            numConnectCallback++;
+            if(numConnectCallback==numMonitorToConnect) {
+                connectState = ConnectState.connectDone;
+                waitForConnect.signal();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+    
+    private void monitorEvent(int index)
+    {
+        if(isDestroyed) return;
+        boolean callRequester = false;
+        lock.lock();
+        try {
+            ++numMonitors;
+            if(numMonitors==nchannel) callRequester=true;
+            if(monitorState!=MonitorState.monitorActive) return;
+            if(monitorElement[index]!=null) return;
+            monitorElement[index] = monitor[index].poll();
+            MonitorElement element = monitorElement[index];
+            if(element!=null) {
+                pvaClientMultiData.setPVStructure(
+                        element.getPVStructure(),element.getChangedBitSet(),index);
+            }
+            timeStampLatest.getCurrentTime();
+            double diff = timeStampLatest.diff(timeStampLatest, timeStampBegin);
+            if(diff>=waitBetweenEvents) callRequester = true;
+        } finally {
+            lock.unlock();
+        }
+        if(callRequester&&(multiRequester!=null)) multiRequester.event(this);
+    }
+    
+    private void lostChannel(int index)
+    {
+        lock.lock();
+        try {
+        isMonitorConnected[index] = false;
+        monitor[index] = null;
+        monitorElement[index] = null;
+        } finally {
+            lock.unlock();
+        }
+    }
+    
     /**
      * Clean up
      */
-     void destroy()
+     public void destroy()
      {
          synchronized (this) {
              if(isDestroyed) return;
@@ -148,26 +211,31 @@ public class PvaClientMultiMonitor {
      }
      /**
       * Calls issueConnect and then waitConnect.
-      * @return (false,true) if (not connected, connected)
+      * If connection is not made an exception is thrown.
       */
-     boolean connect()
+     public void connect()
      {
          issueConnect();
-         return waitConnect();
+         Status status =  waitConnect();
+         if(!status.isOK()) throw new RuntimeException(status.getMessage());
      }
      /**
-      * create the channelGet for all channels.
+      * create the channel monitor for all channels.
       */
-     void issueConnect()
+     public void issueConnect()
      {
          if(isDestroyed) return;
          if(connectState!=ConnectState.connectIdle) {
-             Status status = statusCreate.createStatus(
-                     StatusType.ERROR,"connect already issued",null);
-             setStatus(status);
-             return;
+             throw new RuntimeException("pvaClientMultiMonitor connect already issued");
          }
          numConnectCallback = 0;
+         if(pvaClientMultiChannel.allConnected()) {
+              numMonitorToConnect = channel.length;
+         } else {
+             for(int i=0; i<channel.length; ++i) {
+                 if(channel[i].isConnected()) numMonitorToConnect++;
+             }
+         }
          connectState = ConnectState.connectActive;
          for(int i=0; i<channel.length; ++i) {
              if(channel[i].isConnected()) {
@@ -176,39 +244,37 @@ public class PvaClientMultiMonitor {
          }
      }
      /**
-      * Wait until all channelGets are created.
-      * @return (false,true) if (not all connected, all connected)
+      * Wait until all channel monitors are created.
+      * @return status of connection request.
       */
-     boolean waitConnect()
+     public Status waitConnect()
      {
-         if(isDestroyed) return false;
+         if(isDestroyed) throw new RuntimeException("pvaClientMultiGet was destroyed");
          try {
-             connectLock.lock();
+             lock.lock();
              try {
                  if(numConnectCallback<numMonitorToConnect) waitForConnect.await();
              } catch(InterruptedException e) {
-                 Status status = statusCreate.createStatus(
-                         StatusType.ERROR,
-                         e.getMessage(),
-                         e.fillInStackTrace());
-                 setStatus(status);
-                 return false;
+                 return statusCreate.createStatus(
+                     StatusType.ERROR,"pvaClientMultiMonitor waitConnect exception " + e.getMessage(),
+                     e.fillInStackTrace());
              }
          } finally {
-             connectLock.unlock();
+             lock.unlock();
          }
          if(numMonitorConnected!=numMonitorToConnect) {
-             Status status = statusCreate.createStatus(StatusType.ERROR," did not connect",null);
-             setStatus(status);
-             return false;
+             String message = "pvaClientMultiMonitor waitConnect";
+             message += " numMonitorConnected " + numMonitorConnected;
+             message += " but numMonitorToConnect "  + numMonitorToConnect;
+             return statusCreate.createStatus(StatusType.ERROR, message,null);
          }
-         return true;
+         return statusCreate.getStatusOK();
      }
      /**
       * Optional request to be notified when monitors occur.
       * @param requester The requester which must be implemented by the caller.
       */
-     void setRequester(EasyMultiRequester requester)
+     public void setRequester(PvaClientMultiMonitorRequester requester)
      {
          multiRequester = requester;
      }
@@ -216,47 +282,39 @@ public class PvaClientMultiMonitor {
      /**
       * Start monitoring.
       * This will wait until the monitor is connected.
+      * If any problem is encountered an exception is thrown.
       * @param waitBetweenEvents The time to wait between events to see if more are available. 
-      * @return (false,true) means (failure,success).
-      * If false is returned then failure and getMessage will return reason.
       */
-     boolean start(double waitBetweenEvents)
+     public void start(double waitBetweenEvents)
      {
          if(connectState==ConnectState.connectIdle) connect();
          if(connectState!=ConnectState.connectDone) {
-             Status status = statusCreate.createStatus(StatusType.ERROR,"not connected",null);
-             setStatus(status);
-             return false;
+             throw new RuntimeException("pvaClientMultiMonitor::start not connected");
          }
          if(monitorState!=MonitorState.monitorIdle) {
-             Status status = statusCreate.createStatus(StatusType.ERROR,"not idle",null);
-             setStatus(status);
-             return false;
+             throw new RuntimeException("pvaClientMultiMonitor::start not idle");
          }
          monitorState= MonitorState.monitorActive;
          this.waitBetweenEvents = waitBetweenEvents;
          timeStampBegin.getCurrentTime();
-         easyMultiData.startDeltaTime();
+         pvaClientMultiData.startDeltaTime();
          for(int i=0; i<nchannel; ++i) {
              if(isMonitorConnected[i]) monitor[i].start();
          }
-         return true;
      }
      /**
       * Stop monitoring.
+      * If any problem is encountered an exception is thrown.
       */
-     boolean stop()
+     public void stop()
      {
          if(monitorState!=MonitorState.monitorActive) {
-             Status status = statusCreate.createStatus(StatusType.ERROR,"not active",null);
-             setStatus(status);
-             return false;
+             throw new RuntimeException("pvaClientMultiMonitor::start not active");
          }
          monitorState= MonitorState.monitorIdle;
          for(int i=0; i<nchannel; ++i) {
              if(isMonitorConnected[i]) monitor[i].stop();
          }
-         return true;
      }
      /**
       * Get the monitorElements.
@@ -264,7 +322,7 @@ public class PvaClientMultiMonitor {
       * An element is null if it has data.
       * @return The monitorElements.
       */
-     MonitorElement[] getMonitorElement()
+     public MonitorElement[] getMonitorElement()
      {
          return monitorElement;
      }
@@ -274,12 +332,12 @@ public class PvaClientMultiMonitor {
       * If > 0 then each element that is not null has the data for the corresponding channel.
       * A new poll can not be issued until release is called.
       */
-     int poll()
+     public int poll()
      {
-         monitorLock.lock();
+         lock.lock();
          try {
              if(monitorState!=MonitorState.monitorActive) {
-                 throw new IllegalStateException("monitor is not owner of elements");
+                 throw new IllegalStateException("pvaClientMultiMonitor::poll monitor is not owner of elements");
              }
              int num = 0;
              monitorState = MonitorState.monitorClientActive;
@@ -289,22 +347,22 @@ public class PvaClientMultiMonitor {
                  }
              }
              if(num==0) monitorState = MonitorState.monitorActive;
-             easyMultiData.endDeltaTime();
+             pvaClientMultiData.endDeltaTime();
              return num;
          } finally {
-             monitorLock.unlock();
+             lock.unlock();
          }
      }
      /**
       * Release each monitor element that is not null.
       * @return (false,true) if additional monitors are available.
       */
-     boolean release()
+     public boolean release()
      {
-         monitorLock.lock();
+         lock.lock();
          try {
              if(monitorState!=MonitorState.monitorClientActive) {
-                 throw new IllegalStateException("user is not owner of elements");
+                 throw new IllegalStateException("pvaClientMultiMonitor::release user is not owner of elements");
              }
              boolean moreMonitors = false;
 
@@ -314,28 +372,28 @@ public class PvaClientMultiMonitor {
                      monitorElement[i] = null;
                  }
              }
-             easyMultiData.startDeltaTime();
+             pvaClientMultiData.startDeltaTime();
              if(numMonitors>0) moreMonitors = true;
              numMonitors = 0;
              monitorState = MonitorState.monitorActive;
              return moreMonitors;
          } finally {
-             monitorLock.unlock();
+             lock.unlock();
          }
      }
      /**
       * Get the time when the last get was made.
       * @return The timeStamp.
       */
-     TimeStamp getTimeStamp()
+     public TimeStamp getTimeStamp()
      {
-         return easyMultiData.getTimeStamp();
+         return pvaClientMultiData.getTimeStamp();
      }
      /**
       * Get the number of channels.
       * @return The number of channels.
       */
-     int getLength()
+     public int getLength()
      {
          return nchannel;
      }
@@ -343,63 +401,60 @@ public class PvaClientMultiMonitor {
       * Is value a double[] ?
       * @return The answer.
       */
-     boolean doubleOnly()
+     public boolean doubleOnly()
      {
-         return easyMultiData.doubleOnly();
+         return pvaClientMultiData.doubleOnly();
      }
      /**
       * Get the value field as a MTMultiChannel structure.
+      * An exception is thrown if client is not active.
       * @return The value.
-      * This is null if doubleOnly is true.
       */
-     PVStructure getNTMultiChannel()
+     public PVStructure getNTMultiChannel()
      {
          if(monitorState!=MonitorState.monitorClientActive) {
-             setStatus(clientNotActive);
-             return null;
+             throw new IllegalStateException("pvaClientMultiMonitor::getNTMultiChannel client is not active");
          }
-         return easyMultiData.getNTMultiChannel()
-                 /**
-                  * Get the top level structure of the value field is a double[[]
-                  * @return The top level structure.
-                  * This is null if doubleOnly is false.
-                  */
-                 PVStructure getPVTop()
-         {
-             if(monitorState!=MonitorState.monitorClientActive) {
-                 setStatus(clientNotActive);
-                 return null;
-             }
-             return easyMultiData.getPVTop();
+         return pvaClientMultiData.getNTMultiChannel();
+     }
+     /**
+      * Get the top level structure for the data,
+      * An exception is thrown if client is not active.
+      * @return The top level structure.
+      */
+     public PVStructure getPVTop()
+     {
+         if(monitorState!=MonitorState.monitorClientActive) {
+             throw new IllegalStateException("pvaClientMultiMonitor::getNTMultiChannel client is not active");
          }
-         /**
-          * Return the value field.
-          * @return The double[]
-          * This is null if doubleOnly is false.
-          */
-         double[] getDoubleArray()
-         {
-             if(monitorState!=MonitorState.monitorClientActive) {
-                 setStatus(clientNotActive);
-                 return null;
-             }
-             return easyMultiData.getDoubleArray();
+         return pvaClientMultiData.getPVTop();
+     }
+     /**
+      * Return the value field.
+      * An exception is thrown if client is not active.
+      * @return The double[]
+      */
+     public double[] getDoubleArray()
+     {
+         if(monitorState!=MonitorState.monitorClientActive) {
+             throw new IllegalStateException("pvaClientMultiMonitor::getNTMultiChannel client is not active");
          }
-         /**
-          * Get the data from the value field.
-          * @param offset The offset into the data of the value field.
-          * @param data The place to copy the data.
-          * @param length The number of elements to copy.
-          * @return The number of elements copied.
-          * This is 0 if doubleOnly is false.
-          */
-         int getDoubleArray(int offset, double[]data,int length)
-         {
-             if(monitorState!=MonitorState.monitorClientActive) {
-                 setStatus(clientNotActive);
-                 return 0;
-             }
-             return easyMultiData.getDoubleArray(offset, data, length);
+         return pvaClientMultiData.getDoubleArray();
+     }
+     /**
+      * Get the data from the value field.
+      * An exception is thrown if client is not active.
+      * @param offset The offset into the data of the value field.
+      * @param data The place to copy the data.
+      * @param length The number of elements to copy.
+      * @return The number of elements copied.
+      */
+     public int getDoubleArray(int offset, double[]data,int length)
+     {
+         if(monitorState!=MonitorState.monitorClientActive) {
+             throw new IllegalStateException("pvaClientMultiMonitor::getNTMultiChannel client is not active");
+             
          }
+         return pvaClientMultiData.getDoubleArray(offset, data, length);
      }
 }
