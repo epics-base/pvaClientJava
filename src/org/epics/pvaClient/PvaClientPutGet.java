@@ -65,9 +65,10 @@ public class PvaClientPutGet implements ChannelPutGetRequester
 
     private volatile boolean isDestroyed = false;
     private volatile Status channelPutGetConnectStatus = statusCreate.getStatusOK();
-    private volatile Status channelGetPutStatus = statusCreate.getStatusOK();
+    private volatile Status channelPutGetStatus = statusCreate.getStatusOK();
     private volatile ChannelPutGet channelPutGet = null;
     private volatile PutGetConnectState connectState = PutGetConnectState.connectIdle;
+    
 
     private enum PutGetState {putGetIdle,putGetActive,putGetComplete};
     private volatile PutGetState putGetState = PutGetState.putGetIdle;
@@ -138,7 +139,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
         if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
         lock.lock();
         try {
-            channelGetPutStatus = status;
+            channelPutGetStatus = status;
             putGetState = PutGetState.putGetComplete;
             if(status.isOK()) {
                 pvaClientGetData.setData(getPVStructure,getBitSet);
@@ -162,7 +163,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
         if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
         lock.lock();
         try {
-            channelGetPutStatus = status;
+            channelPutGetStatus = status;
             putGetState = PutGetState.putGetComplete;
             if(status.isOK()) {
                 PVStructure pvs = pvaClientPutData.getPVStructure();
@@ -190,7 +191,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
         if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
         lock.lock();
         try {
-            channelGetPutStatus = status;
+            channelPutGetStatus = status;
             putGetState = PutGetState.putGetComplete;
             if(status.isOK()) {
                 pvaClientGetData.setData(getPVStructure,getBitSet);
@@ -320,7 +321,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
         try {
             if(putGetState==PutGetState.putGetComplete) {
                 putGetState = PutGetState.putGetIdle;
-                return channelGetPutStatus;
+                return channelPutGetStatus;
             }
             if(putGetState!=PutGetState.putGetActive){
                 String message = "channel "
@@ -337,7 +338,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
                 throw new RuntimeException(message);
             }
             putGetState = PutGetState.putGetIdle;
-            return channelGetPutStatus;
+            return channelPutGetStatus;
         } finally {
             lock.unlock();
         }
@@ -384,7 +385,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
         try {
             if(putGetState==PutGetState.putGetComplete) {
                 putGetState = PutGetState.putGetIdle;
-                return channelGetPutStatus;
+                return channelPutGetStatus;
             }
             if(putGetState!=PutGetState.putGetActive){
                 String message = "channel "
@@ -401,7 +402,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
                 throw new RuntimeException(message);
             }
             putGetState = PutGetState.putGetIdle;
-            return channelGetPutStatus;
+            return channelPutGetStatus;
         } finally {
             lock.unlock();
         }
@@ -449,7 +450,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
         try {
             if(putGetState==PutGetState.putGetComplete) {
                 putGetState = PutGetState.putGetIdle;
-                return channelGetPutStatus;
+                return channelPutGetStatus;
             }
             if(putGetState!=PutGetState.putGetActive){
                 String message = "channel "
@@ -466,7 +467,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
                 throw new RuntimeException(message);
             }
             putGetState = PutGetState.putGetIdle;
-            return channelGetPutStatus;
+            return channelPutGetStatus;
         } finally {
             lock.unlock();
         }

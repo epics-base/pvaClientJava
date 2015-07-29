@@ -366,6 +366,7 @@ public class PvaClientPut implements ChannelPutRequester {
                 throw new RuntimeException(message);
             }
             putState = PutState.putIdle;
+            if(channelGetPutStatus.isOK()) pvaClientData.getChangedBitSet().clear();
             return channelGetPutStatus;
         } finally {
             lock.unlock();

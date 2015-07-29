@@ -80,7 +80,7 @@ public class PvaClientPutData {
     private BitSet bitSet = null;
 
     private String messagePrefix = "";
-    private PVField pvValue;
+    private PVField pvValue = null;
     
     private final DoubleArrayData doubleArrayData = new DoubleArrayData();
     private final StringArrayData stringArrayData = new StringArrayData();
@@ -373,6 +373,7 @@ public class PvaClientPutData {
     {
         checkValue();
         PVDoubleArray pv = pvStructure.getSubField(PVDoubleArray.class,"value");
+        if(pv==null) throw new RuntimeException(messagePrefix + notDoubleArray);
         convert.fromDoubleArray(pv, 0, value.length, value, 0);
     }
 
@@ -385,6 +386,7 @@ public class PvaClientPutData {
     {
         checkValue();
         PVStringArray pv = pvStructure.getSubField(PVStringArray.class,"value");
+        if(pv==null) throw new RuntimeException(messagePrefix + notStringArray);
         convert.fromStringArray(pv, 0, value.length, value, 0);
     }
 

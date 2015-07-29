@@ -53,6 +53,7 @@ public class PvaClientMonitor implements MonitorRequester{
     private final PvaClient pvaClient;
     private final Channel channel;
     private final PVStructure pvRequest;
+    private volatile PvaClientMonitorRequester monitorRequester = null;
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition waitForConnect = lock.newCondition();
     private final Condition waitForEvent = lock.newCondition();
@@ -63,7 +64,7 @@ public class PvaClientMonitor implements MonitorRequester{
     private volatile Status connectStatus = statusCreate.getStatusOK();
     private volatile Monitor monitor = null;
     private volatile MonitorElement monitorElement = null;
-    private volatile PvaClientMonitorRequester monitorRequester = null;
+    
 
     private volatile MonitorConnectState connectState = MonitorConnectState.connectIdle;
     private volatile boolean userPoll = false;

@@ -60,7 +60,7 @@ public class PvaClientGetData {
     private BitSet bitSet = null;
 
     private String messagePrefix = "";
-    private PVField pvValue;
+    private PVField pvValue = null;
     private final PVAlarm pvAlarm = PVAlarmFactory.create();
     private final Alarm alarm = new Alarm();
     private final PVTimeStamp pvTimeStamp = PVTimeStampFactory.create();

@@ -320,12 +320,13 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     }
 
     /**
-     * Create an EasyField for the specified subField.
+     * Create an PvaClientField for the specified subField.
      * @param subField The syntax for subField is defined in package org.epics.pvdata.copy
      * @return The interface.
      */
     public PvaClientField createField(String subField)
     {
+        if(connectState!=ConnectState.connected) connect(5.0);
         throw new RuntimeException("pvaClientChannel::createField not implemented");
     }
 
@@ -361,6 +362,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public PvaClientProcess createProcess(PVStructure pvRequest)
     {
+        if(connectState!=ConnectState.connected) connect(5.0);
         return PvaClientProcess.create(pvaClient,channel,pvRequest);
     }
 
@@ -414,12 +416,13 @@ public class PvaClientChannel implements ChannelRequester,Requester{
         return createGet(pvRequest);
     }
     /**
-     * Creates an EasyGet.
+     * Creates a pvaClientGet.
      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
      */
     public PvaClientGet createGet(PVStructure pvRequest)
     {
+        if(connectState!=ConnectState.connected) connect(5.0);
         return PvaClientGet.create(pvaClient,channel,pvRequest);
     }
 
@@ -477,12 +480,13 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     } 
 
     /**
-     * Create an EasyPut.
+     * Create an PvaClientPut.
      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
      */
     public PvaClientPut createPut(PVStructure pvRequest)
     {
+        if(connectState!=ConnectState.connected) connect(5.0);
         return PvaClientPut.create(pvaClient,channel,pvRequest);
     }
 
@@ -512,12 +516,13 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     }
 
     /**
-     * Create an EasyPutGet.
+     * Create an PvaClientPutGet.
      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
      */
     public PvaClientPutGet createPutGet(PVStructure pvRequest)
     {
+        if(connectState!=ConnectState.connected) connect(5.0);
         return PvaClientPutGet.create(pvaClient,channel,pvRequest);
     }
 
@@ -553,6 +558,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public PvaClientArray createArray(PVStructure pvRequest)
     {
+        if(connectState!=ConnectState.connected) connect(5.0);
         String message = channelName + " createArray is not implemented";
         throw new RuntimeException(message);
     }
@@ -636,12 +642,13 @@ public class PvaClientChannel implements ChannelRequester,Requester{
         return createMonitor(pvRequest);
     }
     /**
-     * Create an EasyMonitor.
+     * Create an PvaClientMonitor.
      * @param pvRequest  The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
      */
     public PvaClientMonitor createMonitor(PVStructure pvRequest)
     {
+        if(connectState!=ConnectState.connected) connect(5.0);
         return PvaClientMonitor.create(pvaClient, channel, pvRequest);
     }
 

@@ -77,6 +77,7 @@ public class PvaClientProcess implements ChannelProcessRequester{
      */
     @Override
     public void message(String message, MessageType messageType) {
+        if(isDestroyed) throw new RuntimeException("pvaClientProcess was destroyed");
         pvaClient.message(message, messageType);
     }
     
@@ -102,7 +103,7 @@ public class PvaClientProcess implements ChannelProcessRequester{
      */
     @Override
     public void processDone(Status status, ChannelProcess channelProcess) { 
-        if(isDestroyed) throw new RuntimeException("pvaClientProcess was destroyed");
+        if(isDestroyed) return;
         lock.lock();
         try {
             channelProcessStatus = status;
