@@ -28,7 +28,7 @@
 <h1>EPICS pvaClientJava</h1>
 <!-- Maturity: Working Draft or Request for Comments, or Recommendation, and date.  -->
 <h2 class="nocount">EPICS V4 Working Group, Working Draft,
-19-July-2015</h2>
+03-August-2015</h2>
 <dl>
   <dt>This version:</dt>
     <dd><a
@@ -36,12 +36,13 @@
     </a> </dd>
   <dt>Latest version:</dt>
     <dd><a
-      href="pvaClientJava_20150719.html">pvaClientJava_20150719.html
+      href="pvaClientJava_20150803.html">pvaClientJava_20150803.html
     </a> </dd>
   <dt>Previous version:</dt>
-    <dd>
-      None.
-    </dd>
+    <dd><a
+      href="pvaClientJava_20150719.html">pvaClientJava_20150719.html
+    </a></dd>
+
   <dt>Editors:</dt>
     <dd>Marty Kraimer</dd>
 </dl>
@@ -58,6 +59,7 @@ software support for high speed controls network communications used in EPICS ve
 pvAccess provides a callback based interface, which can be hard to use.
 pvaClient provides an interface that does not require callbacks even for monitors.
 </p>
+<p>
 pvaClientChannel provides many "convenience" methods to directly get and put 
 scalar and scalarArray data types.
 Additional methods provide access to the full features of pvAccess.
@@ -111,9 +113,15 @@ href="./html/index.html">doxygenDoc
 </a>
 </p>
 <h2>Example Database</h2>
-<p>The examples require that an example pvAccess server is running.
-For now the test database is available in project pvaClientTestCPP.
-</p>
+<p>The examples require that the database provided by project pvaClientTestCPP
+is running.
+For example:</p>
+<pre>
+mrk&gt; pwd
+/home/epicsv4/pvaClientTestCPP/database/iocBoot/exampleDatabase
+mrk&gt; ../../bin/linux-x86_64/exampleDatabase st.cmd
+</pre>
+
 <h2>Examples</h2>
 <p>Examples are in directory <b>example</b>.
 </p>
@@ -146,24 +154,19 @@ For now the test database is available in project pvaClientTestCPP.
 </dl>
 <h2>examplePvaClientMonitor</h2>
 <p>This is an example of creating a monitor on a channel.
-It monitors a channel that models a powerSupply, i. e. it is not a "standard" record.
-It does not have a value field.
+It monitors a scalar double field.
+It also issues puts to the same channel so that it can make the monitors occur.
 </p>
-<p>After starting the example a change can be made to the powerSupply by issuing:</p>
-<pre>
-pvput -r "power.value,voltage.value" examplePowerSupply 6 6
-</pre>
 <h2>examplePvaClientPut</h2>
-<p>This example gets and puts to channel exampleDouble.</p>
+<p>This example gets and puts to channels exampleDouble
+and exampleDoubleArray.</p>
 <h2>examplePvaClientProcess</h2>
 <p>This example makes a process request to channel exampleDouble.</p>
 <h2>helloWorldPutGet</h2>
 <p>This is an example of issuing a channelPutGet.</p>
 <h2>examplePvaClientMultiDouble</h2>
-<p>This is an example of issuing gets and puts to multiple channels where each
-channel has a numeric scalar value field.</p>
-<h2>examplePvaClientNTMultiChannel</h2>
-<p>This is an example of using NDMultiChannel to obtain data from multiple channels.
+<p>This is an example of using pvaClientMultiChannel,
+pvaClientMultiGetDouble, pvaClientMultiPutDouble, and pvaClientMultiMonitorDouble.
 </p>
 <h2>helloWorldRPC</h2>
 <p>This is an example of issuing a channelRPC request.
