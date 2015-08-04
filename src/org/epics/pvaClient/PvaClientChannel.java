@@ -51,11 +51,11 @@ public class PvaClientChannel implements ChannelRequester,Requester{
             PvaClient pvaClient,
             String channelName,
             String providerName)
-            {
+    {
         this.pvaClient = pvaClient;
         this.channelName = channelName;
         this.providerName = providerName;
-            }
+    }
 
 
     static private class PvaClientGetCache

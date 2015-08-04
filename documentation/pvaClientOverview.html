@@ -57,7 +57,7 @@ A client can also check for failues and thus prevent exceptions.</p>
 <p>Simple examples of using pva:</p>
 <pre>
 // pvaGet
-PvaClient pva = PvaClient::create();
+PvaClient pva = PvaClient.get();
 double value = pva.channel("exampleDouble").get().getData().getDouble();
 
 // pvaPut
@@ -67,7 +67,7 @@ PvaClientPutData putData = put.getData();
 putData.putDouble(3.0); put.put();
 
 // pvaMonitor
-PvaClientMonitor monitor = pva.channel("examplePowerSupply").monitor("");
+PvaClientMonitor monitor = pva.channel("examplecwDouble").monitor("");
 PvaClientMonitorData pvaData = monitor.getData();
 while(true) {
     monitor.waitEvent();
@@ -96,9 +96,9 @@ process.process();
 </dl>
 
 <h2>PvaClient</h2>
-<p>An instance of PvaClient is obtained via the call:</p>
+<p>An interface to PvaClient is obtained via the call:</p>
 <pre>
-PvaClient pva = PvaClient::create();
+PvaClient pva = PvaClient.get();
 </pre>
 
 <p>PvaClient has methods to create instances of <b>PvaClientChannel</b>.
@@ -297,23 +297,15 @@ It has methods:</p>
 <h2>PvaClientMultiChannel - Wrapper For Multiple Channels</h2>
 <h3>PvaClientMultiChannel</h3>
 <p>This provides methods for connecting to multiple channels.
-A client can either use PvaClientMultiChannel directly or use PvaClientMultiDouble or PvaClientNTMultiChannel.
-But both impose restrictions on what can be accessed.
 </p>
-<h3>PvaClientMultiDouble</h3>
-<p>This provides support for gets and puts to the value field of multiple channels.
-Each channel must have a value field that is a numeric scalar.
-The client always sees the data as a PVDoubleArray.
-All channels must connect.
-If any problems occur an exception is thrown.
+<h3>PvaClientMultiGetDouble</h3>
+<p>This provides support for channelGet to multiple channels.
 </p>
-<h3>PvaClientNTMultiChannel</h3>
-<p>This provides support for gets and puts to the value field of multiple channels.
-Each channel must have a value field.
-The client always sees the data as a NTMultiChannel, which is one
-of the types provided by normativeTypesCPP.
-All channels must connect.
-If any problems occur an exception is thrown.
+<h3>PvaClientMultiPutDouble</h3>
+<p>This provides support for channelPut to multiple channels.
+</p>
+<h3>PvaClientMultiMonitorDouble</h3>
+<p>This provides support for monitoring changes to multiple channels.
 </p>
 
 </div> <!-- class="contents" -->
