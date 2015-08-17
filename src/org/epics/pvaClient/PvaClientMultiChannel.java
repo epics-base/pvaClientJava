@@ -10,9 +10,13 @@
  */
 package org.epics.pvaClient;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 import org.epics.pvaccess.client.Channel;
 import org.epics.pvaccess.client.Channel.ConnectionState;
+import org.epics.pvdata.copy.CreateRequest;
 import org.epics.pvdata.factory.StatusFactory;
+import org.epics.pvdata.pv.PVStructure;
 import org.epics.pvdata.pv.Status;
 import org.epics.pvdata.pv.StatusCreate;
 
@@ -35,6 +39,46 @@ public class PvaClientMultiChannel
     {
         return create(pvaClient,channelNames,"pva",0);
     }
+    
+    private PvaClientMultiChannel(
+            PvaClient pvaClient,
+            String[] channelNames,
+            String providerName,
+            int maxNotConnected)
+    {
+        this.pvaClient = pvaClient;
+        this.channelName = channelNames;
+        this.providerName = providerName;
+        this.maxNotConnected = maxNotConnected;
+        numChannel = channelName.length;
+        pvaClientChannelArray = new PvaClientChannel[numChannel];
+        isConnected = new boolean[numChannel];
+        for(int i=0; i<numChannel; ++i)
+        {
+            pvaClientChannelArray[i] = null;
+            isConnected[i] = false;
+        }
+    }
+
+    private void checkConnected()
+    {
+        if(numConnected==0) connect(3.0);
+    }
+
+    private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
+    private final CreateRequest createRequest = CreateRequest.create();
+    private final PvaClient pvaClient;
+    private final String[] channelName;
+    private final String providerName;
+    private final int maxNotConnected;
+
+    private final int numChannel;
+    private final ReentrantLock lock = new ReentrantLock();
+
+    private int numConnected = 0;
+    private PvaClientChannel[] pvaClientChannelArray;
+    boolean[] isConnected;
+    boolean isDestroyed = false;
 
     /** Create a PvaClientMultiChannel.
      * @param pvaClient The interface to pvaClient.
@@ -57,11 +101,16 @@ public class PvaClientMultiChannel
      */
     public void destroy()
     {
-        if(isDestroyed) return;
-        isDestroyed = true;
+        lock.lock();
+        try {
+            if(isDestroyed) return;
+            isDestroyed = true;
+        } finally {
+            lock.unlock();
+        }
         for(int i=0; i<numChannel; ++i) 
         {
-            pvaClientChannelArray[i].destroy();
+            if(pvaClientChannelArray!=null) pvaClientChannelArray[i].destroy();
             pvaClientChannelArray[i] = null;
         }
         pvaClientChannelArray = null;
@@ -117,7 +166,7 @@ public class PvaClientMultiChannel
     /** Are all channels connected?
      * @return if all are connected.
      */
-    boolean allConnected()
+    public boolean allConnected()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientMultiChannel was destroyed");
         return (numConnected==numChannel) ? true : false;
@@ -125,7 +174,7 @@ public class PvaClientMultiChannel
     /** Has a connection state change occured?
      * @return (true, false) if (at least one, no) channel has changed state.
      */
-    boolean connectionChange()
+    public boolean connectionChange()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientMultiChannel was destroyed");
         for(int i=0; i<numChannel; ++i) {
@@ -140,7 +189,7 @@ public class PvaClientMultiChannel
     /** Get the connection state of each channel.
      * @return The state of each channel.
      */
-    boolean[] getIsConnected()
+    public boolean[] getIsConnected()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientMultiChannel was destroyed");
         for(int i=0; i<numChannel; ++i) {
@@ -198,43 +247,67 @@ public class PvaClientMultiChannel
         checkConnected();
         return PvaClientMultiMonitorDouble.create(this, pvaClientChannelArray);
     }
-
-    private PvaClientMultiChannel(
-            PvaClient pvaClient,
-            String[] channelNames,
-            String providerName,
-            int maxNotConnected)
+    /**
+     * Create a pvaClientNTMultiPut.
+     * @return The interface.
+     */
+    public PvaClientNTMultiPut createNTPut()
     {
-        this.pvaClient = pvaClient;
-        this.channelName = channelNames;
-        this.providerName = providerName;
-        this.maxNotConnected = maxNotConnected;
-        numChannel = channelName.length;
-        pvaClientChannelArray = new PvaClientChannel[numChannel];
-        isConnected = new boolean[numChannel];
-        for(int i=0; i<numChannel; ++i)
-        {
-            pvaClientChannelArray[i] = null;
-            isConnected[i] = false;
+        checkConnected();
+        return PvaClientNTMultiPut.create(this, pvaClientChannelArray);   
+    }
+    /**
+     * Create a pvaClientNTMultiGet.
+     * This calls the next method with request = "value,alarm,timeStamp"
+     * @return The interface.
+     */
+    public PvaClientNTMultiGet createNTGet()
+    {
+        return createNTGet("value,alarm,timeStamp");
+    }
+    /**
+     * Create a pvaClientNTMultiGet;
+     * @param request The request for each channel.
+     * @return The interface.
+     */
+    public PvaClientNTMultiGet createNTGet(String request)
+    {
+        checkConnected();
+        PVStructure pvRequest = createRequest.createRequest(request);
+        if(pvRequest==null) {
+            String message = " PvaClientMultiChannel::createNTGet invalid pvRequest: "
+                 + createRequest.getMessage();
+            throw new RuntimeException(message);
+            
         }
+        return PvaClientNTMultiGet.create(this, pvaClientChannelArray,pvRequest);
     }
-
-    void checkConnected()
+    /**
+     * Create a pvaClientNTMultiMonitor.
+     * This calls the next method with request = "value,alarm,timeStamp"
+     * @return The interface.
+     */
+    public PvaClientNTMultiMonitor createNTMonitor()
     {
-        if(numConnected==0) connect(3.0);
+        return createNTMonitor("value,alarm,timeStamp");
+    }
+    /**
+     * Create a pvaClientNTMultiPut.
+     * @param request The request for each channel.
+     * @return The interface.
+     */
+    public PvaClientNTMultiMonitor createNTMonitor(String request)
+    {
+        checkConnected();
+        PVStructure pvRequest = createRequest.createRequest(request);
+        if(pvRequest==null) {
+            String message = " PvaClientMultiChannel::createNTMonitor invalid pvRequest: "
+                 + createRequest.getMessage();
+            throw new RuntimeException(message);
+            
+        }
+        return PvaClientNTMultiMonitor.create(this, pvaClientChannelArray,pvRequest);
     }
 
-    private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
-    private final PvaClient pvaClient;
-    private final String[] channelName;
-    private final String providerName;
-    private final int maxNotConnected;
-
-    private int numChannel;
-
-    private int numConnected = 0;
-    private PvaClientChannel[] pvaClientChannelArray;
-    boolean[] isConnected;
-    boolean isDestroyed = false;
 };
 

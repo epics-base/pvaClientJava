@@ -18,7 +18,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>3.8.1</version>
+            <version>4.12</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -28,9 +28,25 @@
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
+            <artifactId>normativeTypesJava</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
             <artifactId>pvAccessJava</artifactId>
             <version>4.1.0-SNAPSHOT</version>
         </dependency>
+        <dependency>
+            <groupId>org.epics</groupId>
+            <artifactId>jca</artifactId>
+            <version>2.3.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.epics</groupId>
+            <artifactId>caj</artifactId>
+            <version>1.1.14</version>
+        </dependency>
+
     </dependencies>
     
     <distributionManagement>
