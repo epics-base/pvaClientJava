@@ -1,4 +1,4 @@
-/*ExamplePvaClientProcess.java */
+/*HelloWorldPutGet.java */
 /**
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * EPICS pvData is distributed subject to a Software License Agreement found
