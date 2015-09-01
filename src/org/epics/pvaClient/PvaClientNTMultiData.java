@@ -89,7 +89,7 @@ public class PvaClientNTMultiData
             unionValue[i] = pvDataCreate.createPVUnion(u);
         }
         NTMultiChannelBuilder builder = NTMultiChannel.createBuilder();
-        builder.value(u);
+        builder.value(u).addIsConnected();
         if(pvRequest.getSubField("field.alarm")!=null)
         {
             gotAlarm = true;
