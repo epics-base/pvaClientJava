@@ -8,13 +8,7 @@ pvaClient is thus easier to use than pvAccess itself.
 Building
 --------
 
-If a proper RELEASE.local file exists one directory level above pvaClientCPP
-then just type:
-
-    make
-
-If RELEASE.local does not exists the look at <b>configure/RELEASE</b>
-for directions for how to build.
+    mvn package
 
 Examples
 ------------
