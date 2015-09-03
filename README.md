@@ -1,9 +1,11 @@
-pvaClientCPP
+pvaClientJava
 ============
 
 pvaClient is a synchronous client interface to pvAccess,
 which is callback based.
 pvaClient is thus easier to use than pvAccess itself.
+
+See documentation/pvaClientJava.html for details.
 
 Building
 --------
@@ -23,7 +25,7 @@ For example:
 Status
 ------
 
-* The API should ready for feature freeze for release 4.5
+* The API is for release 4.5.0-pre1
 * Everything defined in pvaClient.h should be ready but see below for remaining work.
 * Everything defined in pvaClientMultiChannel.h is ready but see below for remaining work.
 
@@ -36,7 +38,7 @@ Channel::getField and channelArray are not supported for release 4.5.
 pvaClientMultiChannel
 ---------------
 
-For release 4.6 support is available for multiDouble and NTMultiChannel.
+For release 4.5 support is available for multiDouble and NTMultiChannel.
 In the future additional support should be provided that at least includes NTScalarMultiChannel.
 
 Testing with some channels not connected have not been done.
