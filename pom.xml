@@ -4,7 +4,7 @@
 
     <groupId>org.epics</groupId>
     <artifactId>pvaClientJava</artifactId>
-    <version>4.1.0</version>
+    <version>4.1.1</version>
     <packaging>jar</packaging>
 
     <name>pvaClient - Java</name>
@@ -29,7 +29,7 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>normativeTypesJava</artifactId>
-            <version>0.1.0-SNAPSHOT</version>
+            <version>0.1.0</version>
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -44,7 +44,7 @@
         <dependency>
             <groupId>org.epics</groupId>
             <artifactId>caj</artifactId>
-            <version>1.1.14</version>
+            <version>1.1.15</version>
         </dependency>
 
     </dependencies>
