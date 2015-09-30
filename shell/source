@@ -1,0 +1,13 @@
+# The following assumes that pvData, pvAccess, and javaIOC are in /home/epicsv4
+export EPICSV4=/home/epicsv4
+export CLASSPATH=${EPICSV4}/jca-2.3.6.jar
+export CLASSPATH=${CLASSPATH}:${EPICSV4}/caj-1.1.15.jar
+export PVDATA=${EPICSV4}/pvDataJava
+export NORMATIVETYPES=${EPICSV4}/normativeTypesJava
+export PVACCESS=${EPICSV4}/pvAccessJava
+export PVACLIENT=${EPICSV4}/pvaClientJava
+export CLASSPATH=${CLASSPATH}:${PVDATA}/target/classes
+export CLASSPATH=${CLASSPATH}:${NORMATIVETYPES}/target/classes
+export CLASSPATH=${CLASSPATH}:${PVACCESS}/target/classes
+export CLASSPATH=${CLASSPATH}:${PVACLIENT}/target/classes
+
