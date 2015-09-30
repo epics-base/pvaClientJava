@@ -10,7 +10,7 @@ See documentation/pvaClientJava.html for details.
 Building
 --------
 
-    mvn site
+    mvn package
 
 Examples
 ------------
