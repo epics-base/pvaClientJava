@@ -25,12 +25,12 @@ For example:
 Status
 ------
 
-* The API is for release 4.5.0-pre1
-* Everything defined in pvaClient.h should be ready but see below for remaining work.
-* Everything defined in pvaClientMultiChannel.h is ready but see below for remaining work.
+* The API is for EPICS Version 4 release 4.5.0
+* pvaClient should be ready but see below for remaining work.
+* pvaClientMultiChannel is ready but see below for remaining work.
 
 
-pvaClientChannel
+pvaClient
 ---------------
 
 Channel::getField and channelArray are not supported for release 4.5.
@@ -41,5 +41,4 @@ pvaClientMultiChannel
 For release 4.5 support is available for multiDouble and NTMultiChannel.
 In the future additional support should be provided that at least includes NTScalarMultiChannel.
 
-Testing with some channels not connected have not been done.
-At least some testing with missing channels should be done before release 4.5
+Testing with some channels not connected has not been done.
