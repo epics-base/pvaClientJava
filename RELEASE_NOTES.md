@@ -1,13 +1,16 @@
-Release/4.1
-===========
+Release 4.1.4
+=============
 
-This is for EPICS V4 release 4.5
+No changes except for pom versions.
+
+Release 4.1.3
+=============
 
 pvaClient is a synchronous API for pvAccess.
 
 pvaClientJava is the successor to easyPVAJava.
-The main difference is that pvaClient uses exceptions to report most problem instead
-of requiring the client to call status methods.
+The main difference is that pvaClient uses exceptions to report most problems
+instead of requiring the client to call status methods.
 
 EasyPVAJava: Release 0.4 IN DEVELOPMENT
 ---------------------------------------
@@ -25,8 +28,8 @@ EasyPVA automatically starts Channel Providers
 It is no longer necessary to start channel provider factories.
 There are two providers automatically started: pva and ca.
 
-Both createChannel or createMultiChannel have two version; one uses the default provider
-and the other allows the caller to specify the provider.
+Both createChannel or createMultiChannel have two version; one uses the
+default provider and the other allows the caller to specify the provider.
 The default provider is "pva", which uses the pvAccess network protocol.
 See pvAccessJava.html for details.
 The other provider is "ca", which uses the Channel Access network protocol,
@@ -47,5 +50,5 @@ See easyPVA.html for details.
 
 
 Release 0.3.0
-==========
+=============
 This was the starting point for RELEASE_NOTES
