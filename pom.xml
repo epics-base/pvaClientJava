@@ -4,7 +4,7 @@
 
     <groupId>org.epics</groupId>
     <artifactId>pvaClientJava</artifactId>
-    <version>4.1.3</version>
+    <version>4.1.4</version>
     <packaging>jar</packaging>
 
     <name>pvaClient - Java</name>
@@ -24,17 +24,17 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>pvDataJava</artifactId>
-            <version>5.0.2</version>
+            <version>5.0.3</version>
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>normativeTypesJava</artifactId>
-            <version>0.1.2</version>
+            <version>0.1.3</version>
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>pvAccessJava</artifactId>
-            <version>4.1.2</version>
+            <version>4.1.3</version>
         </dependency>
         <dependency>
             <groupId>org.epics</groupId>
