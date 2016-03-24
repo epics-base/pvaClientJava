@@ -160,6 +160,10 @@ public class PvaClientChannel implements ChannelRequester,Requester{
         if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
         if(status.isOK()) {
             this.channel = channel;
+            if(channel.isConnected()) {
+            	connectState = ConnectState.connected;
+                channelConnectStatus = statusCreate.getStatusOK();
+           }
             return;
         }
         System.err.println("PvaClientChannel::channelCreated status "
@@ -211,9 +215,14 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public void destroy()
     {
-        if(isDestroyed) return;
-        isDestroyed = true;
-        if(channel!=null) channel.destroy();
+    	synchronized (this) {
+            if(isDestroyed) return;
+            isDestroyed = true;
+        }
+        if(channel!=null) {
+        	channel.destroy();
+        	channel=null;
+        }
         pvaClientGetCache.destroy();
         pvaClientPutCache.destroy();
     }
@@ -264,6 +273,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public void issueConnect()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
+        if(connectState==ConnectState.connected) return;
         if(connectState!=ConnectState.connectIdle) {
             throw new RuntimeException("pvaClientChannel already connected");
         }
@@ -295,7 +305,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
         if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
         lock.lock();
         try {
-            if(connectState==ConnectState.connected) return channelConnectStatus;
+            if(channel.isConnected()) return channelConnectStatus;
             try {
                 long nano = (long)(timeout*1e9);
                 waitForConnect.awaitNanos(nano);
