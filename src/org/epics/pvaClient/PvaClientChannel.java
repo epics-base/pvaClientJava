@@ -215,9 +215,14 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public void destroy()
     {
-        if(isDestroyed) return;
-        isDestroyed = true;
-        if(channel!=null) channel.destroy();
+    	synchronized (this) {
+            if(isDestroyed) return;
+            isDestroyed = true;
+        }
+        if(channel!=null) {
+        	channel.destroy();
+        	channel=null;
+        }
         pvaClientGetCache.destroy();
         pvaClientPutCache.destroy();
     }
@@ -268,6 +273,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public void issueConnect()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
+        if(connectState==ConnectState.connected) return;
         if(connectState!=ConnectState.connectIdle) {
             throw new RuntimeException("pvaClientChannel already connected");
         }

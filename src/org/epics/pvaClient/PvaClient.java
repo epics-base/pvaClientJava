@@ -48,7 +48,13 @@ public class PvaClient implements Requester {
         
        
         void destroy() {
-            pvaClientChannelMap.clear();
+        	Set<String> names = pvaClientChannelMap.keySet();
+        	Iterator<String> iter = names.iterator();
+        	while(iter.hasNext()) {
+        		PvaClientChannel pvaChannel = pvaClientChannelMap.get(iter.next());
+        		pvaChannel.destroy();
+        	}
+        	pvaClientChannelMap.clear();
         }
         PvaClientChannel getChannel(
                 String channelName,
@@ -99,7 +105,6 @@ public class PvaClient implements Requester {
     
     private Requester requester = null;
     private boolean isDestroyed = false;
-
 
     /**
      * Destroy all cached channels.
