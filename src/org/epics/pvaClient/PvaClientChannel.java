@@ -140,7 +140,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     private final PvaClient pvaClient;
     private final String channelName;
     private final String providerName;
-    private volatile ConnectState connectState = ConnectState.connectIdle;
+    private ConnectState connectState = ConnectState.connectIdle;
     private volatile boolean isDestroyed = false;
     private CreateRequest createRequest = new CreateRequest();
     private final PvaClientGetCache pvaClientGetCache = new PvaClientGetCache();
@@ -157,41 +157,49 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     @Override
     public void channelCreated(Status status, Channel channel) {
-        if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
-        if(status.isOK()) {
-            this.channel = channel;
-            if(channel.isConnected()) {
-            	connectState = ConnectState.connected;
-                channelConnectStatus = statusCreate.getStatusOK();
-           }
-            return;
-        }
-        System.err.println("PvaClientChannel::channelCreated status "
-                + status.getMessage() + "why??");
+    	lock.lock();
+    	try {
+    		if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
+    		if(status.isOK()) {
+    			this.channel = channel;
+    			if(channel.isConnected()) {
+    				boolean waitingForConnect = false;
+    				if(connectState==ConnectState.connectActive) waitingForConnect = true;
+    				connectState = ConnectState.connected;
+    				channelConnectStatus = statusCreate.getStatusOK();
+    				if(waitingForConnect) waitForConnect.signal();
+    			}
+    			return;
+    		}
+    	} finally {
+    		lock.unlock();
+    	}
+    	System.err.println("PvaClientChannel::channelCreated status "
+    			+ status.getMessage() + "why??");
     }
     /* (non-Javadoc)
      * @see org.epics.pvaccess.client.ChannelRequester#channelStateChange(org.epics.pvaccess.client.Channel, org.epics.pvaccess.client.Channel.ConnectionState)
      */
     @Override
     public void channelStateChange(Channel channel,ConnectionState connectionState) {
-        lock.lock();
-        try {
-            if(isDestroyed) return;
-            boolean waitingForConnect = false;
-            if(connectState==ConnectState.connectActive) waitingForConnect = true;
-            if(connectionState!=ConnectionState.CONNECTED) {
-                String message = channelName + " connection state " + connectionState.name();
-                message(message,MessageType.error);
-                channelConnectStatus = statusCreate.createStatus(StatusType.ERROR,message,null);
-                connectState = ConnectState.notConnected;
-            } else {
-                connectState = ConnectState.connected;
-                channelConnectStatus = statusCreate.getStatusOK();
-            }   
-            if(waitingForConnect) waitForConnect.signal();
-        } finally {
-            lock.unlock();
-        }
+    	lock.lock();
+    	try {
+    		if(isDestroyed) return;
+    		boolean waitingForConnect = false;
+    		if(connectState==ConnectState.connectActive) waitingForConnect = true;
+    		if(connectionState!=ConnectionState.CONNECTED) {
+    			String message = channelName + " connection state " + connectionState.name();
+    			message(message,MessageType.error);
+    			channelConnectStatus = statusCreate.createStatus(StatusType.ERROR,message,null);
+    			connectState = ConnectState.notConnected;
+    		} else {
+    			connectState = ConnectState.connected;
+    			channelConnectStatus = statusCreate.getStatusOK();
+    		}   
+    		if(waitingForConnect) waitForConnect.signal();
+    	} finally {
+    		lock.unlock();
+    	}
     }
 
     /* (non-Javadoc)
@@ -272,26 +280,31 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public void issueConnect()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
-        if(connectState==ConnectState.connected) return;
-        if(connectState!=ConnectState.connectIdle) {
-            throw new RuntimeException("pvaClientChannel already connected");
-        }
-        channelConnectStatus = statusCreate.createStatus(
-                StatusType.ERROR,
-                getChannelName() + " createChannel failed",null);
-        connectState = ConnectState.connectActive;
-        ChannelProvider provider = ChannelProviderRegistryFactory
-                .getChannelProviderRegistry().getProvider(providerName);
-        if(provider==null) {
-            String mess = getChannelName() + " provider " + providerName + " not registered";
-            throw new RuntimeException(mess);
-        }
-        channel = provider.createChannel(channelName, this, ChannelProvider.PRIORITY_DEFAULT);
-        if(channel==null) {
-            String mess = getChannelName() + " channelCreate failed ";
-            throw new RuntimeException(mess);
-        }
+    	lock.lock();
+    	try {
+    		if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
+    		if(connectState==ConnectState.connected) return;
+    		if(connectState!=ConnectState.connectIdle) {
+    			throw new RuntimeException("pvaClientChannel already connected");
+    		}
+    		channelConnectStatus = statusCreate.createStatus(
+    				StatusType.ERROR,
+    				getChannelName() + " createChannel failed",null);
+    		connectState = ConnectState.connectActive;	
+    	} finally {
+    		lock.unlock();
+    	}
+    	ChannelProvider provider = ChannelProviderRegistryFactory
+				.getChannelProviderRegistry().getProvider(providerName);
+		if(provider==null) {
+			String mess = getChannelName() + " provider " + providerName + " not registered";
+			throw new RuntimeException(mess);
+		}
+		channel = provider.createChannel(channelName, this, ChannelProvider.PRIORITY_DEFAULT);
+		if(channel==null) {
+			String mess = getChannelName() + " channelCreate failed ";
+			throw new RuntimeException(mess);
+		}
     }
 
     /**
@@ -302,21 +315,21 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public Status waitConnect(double timeout)
     {
+
+
         if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
-        lock.lock();
-        try {
-            if(channel.isConnected()) return channelConnectStatus;
-            try {
-                long nano = (long)(timeout*1e9);
-                waitForConnect.awaitNanos(nano);
-            } catch(InterruptedException e) {
-                Status status = statusCreate.createStatus(StatusType.ERROR,e.getMessage(), e.fillInStackTrace());
-                return status;
-            }
-            return channelConnectStatus;
-        } finally {
-            lock.unlock();
-        }
+    	if(channel.isConnected()) return channelConnectStatus;
+    	lock.lock();
+    	try {
+    		long nano = (long)(timeout*1e9);
+    		waitForConnect.awaitNanos(nano);
+    	} catch(InterruptedException e) {
+    		Status status = statusCreate.createStatus(StatusType.ERROR,e.getMessage(), e.fillInStackTrace());
+    		return status;
+    	} finally {
+		    lock.unlock();
+	    }
+    	return channelConnectStatus;
     }
 
 

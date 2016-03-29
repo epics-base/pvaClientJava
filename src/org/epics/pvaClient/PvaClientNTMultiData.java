@@ -224,23 +224,22 @@ public class PvaClientNTMultiData
         {
             PVStructure pvst = topPVStructure[i];
             if(pvst==null) {
-                unionValue[i] = null;
+                unionValue[i].set(null);
             } else {
                 unionValue[i].set(pvst.getSubField("value"));
+                if(gotAlarm)
+                {
+                    severity[i] = pvst.getSubField(PVInt.class,"alarm.severity").get();
+                    status[i] = pvst.getSubField(PVInt.class,"alarm.status").get();
+                    message[i] = pvst.getSubField(PVString.class,"alarm.message").get();
+                }
+                if(gotTimeStamp)
+                {
+                    secondsPastEpoch[i] = pvst.getSubField(PVLong.class,"timeStamp.secondsPastEpoch").get();
+                    nanoseconds[i] = pvst.getSubField(PVInt.class,"timeStamp.nanoseconds").get();
+                    userTag[i] = pvst.getSubField(PVInt.class,"timeStamp.userTag").get();
+                }
             }
-            if(gotAlarm)
-            {
-                severity[i] = pvst.getSubField(PVInt.class,"alarm.severity").get();
-                status[i] = pvst.getSubField(PVInt.class,"alarm.status").get();
-                message[i] = pvst.getSubField(PVString.class,"alarm.message").get();
-            }
-            if(gotTimeStamp)
-            {
-                secondsPastEpoch[i] = pvst.getSubField(PVLong.class,"timeStamp.secondsPastEpoch").get();
-                nanoseconds[i] = pvst.getSubField(PVInt.class,"timeStamp.nanoseconds").get();
-                userTag[i] = pvst.getSubField(PVInt.class,"timeStamp.userTag").get();
-            }
-
         }
         
     }
