@@ -17,6 +17,7 @@ public class PvaClientField
      * Create new PvaClientField.
      * NOT implemented.
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     static PvaClientField create(
         PvaClient pvaClient,

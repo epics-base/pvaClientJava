@@ -127,7 +127,7 @@ public class PvaClientProcess implements ChannelProcessRequester{
     }
     /**
      * Call issueConnect and then waitConnect.
-     * An exception is thrown if connect fails.
+     * @throws RuntimeException if create fails.
      */
     public void connect()
     {

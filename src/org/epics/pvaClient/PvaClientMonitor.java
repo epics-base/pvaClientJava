@@ -155,7 +155,7 @@ public class PvaClientMonitor implements MonitorRequester{
     }
     /**
      * call issueConnect and then waitConnect.
-     * An exception is thrown if connect fails.
+     * @throws RuntimeException if create fails.
      */
     public void connect()
     {
@@ -170,6 +170,7 @@ public class PvaClientMonitor implements MonitorRequester{
     /**
      * create the monitor connection to the channel.
      * This can only be called once.
+     * @throws RuntimeException if failure.
      */
     public void issueConnect()
     {

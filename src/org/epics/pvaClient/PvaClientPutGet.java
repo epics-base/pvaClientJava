@@ -218,6 +218,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
 
     /**
      * call issueConnect and then waitConnect.
+     * @throws RuntimeException if create fails.
      */
     public void connect()
     {
@@ -282,7 +283,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
 
     /**
      * Call issuePutGet and then waitGet.
-     * An exception is thrown if putGet fails.
+     * @throws RuntimeException if putGet fails..
      */
     public void putGet()
     {
@@ -346,7 +347,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
     
     /**
      * Call issueGetGet and then waitGet.
-     * An exception is thrown if getGet fails
+     * @throws RuntimeException if getGet fails.
      */
     public void getGet()
     {
@@ -410,7 +411,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
 
     /**
      * Call issuePut and then waitPut.
-     * An exception is thrown if getGet fails
+     * @throws RuntimeException if getGet fails.
      */
     public void getPut()
     {

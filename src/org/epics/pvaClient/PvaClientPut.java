@@ -180,6 +180,7 @@ public class PvaClientPut implements ChannelPutRequester {
 
     /**
      * call issueConnect and then waitConnect.
+     * @throws RuntimeException if create fails.
      */
     public void connect()
     {
@@ -309,7 +310,7 @@ public class PvaClientPut implements ChannelPutRequester {
 
     /**
      * Call issuePut and then waitPut.
-     * An exception is thrown if put fails.
+     * @throws RuntimeException if put fails.
      */
     public void put()
     {
