@@ -134,7 +134,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
         private Map<String,PvaClientPut> pvaClientPutMap
         = new TreeMap<String,PvaClientPut>();
     }
-    
+
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
     private enum ConnectState {connectIdle,connectActive,notConnected,connected};
     private final PvaClient pvaClient;
@@ -157,49 +157,49 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     @Override
     public void channelCreated(Status status, Channel channel) {
-    	lock.lock();
-    	try {
-    		if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
-    		if(status.isOK()) {
-    			this.channel = channel;
-    			if(channel.isConnected()) {
-    				boolean waitingForConnect = false;
-    				if(connectState==ConnectState.connectActive) waitingForConnect = true;
-    				connectState = ConnectState.connected;
-    				channelConnectStatus = statusCreate.getStatusOK();
-    				if(waitingForConnect) waitForConnect.signal();
-    			}
-    			return;
-    		}
-    	} finally {
-    		lock.unlock();
-    	}
-    	System.err.println("PvaClientChannel::channelCreated status "
-    			+ status.getMessage() + "why??");
+        lock.lock();
+        try {
+            if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
+            if(status.isOK()) {
+                this.channel = channel;
+                if(channel.isConnected()) {
+                    boolean waitingForConnect = false;
+                    if(connectState==ConnectState.connectActive) waitingForConnect = true;
+                    connectState = ConnectState.connected;
+                    channelConnectStatus = statusCreate.getStatusOK();
+                    if(waitingForConnect) waitForConnect.signal();
+                }
+                return;
+            }
+        } finally {
+            lock.unlock();
+        }
+        System.err.println("PvaClientChannel::channelCreated status "
+                + status.getMessage() + "why??");
     }
     /* (non-Javadoc)
      * @see org.epics.pvaccess.client.ChannelRequester#channelStateChange(org.epics.pvaccess.client.Channel, org.epics.pvaccess.client.Channel.ConnectionState)
      */
     @Override
     public void channelStateChange(Channel channel,ConnectionState connectionState) {
-    	lock.lock();
-    	try {
-    		if(isDestroyed) return;
-    		boolean waitingForConnect = false;
-    		if(connectState==ConnectState.connectActive) waitingForConnect = true;
-    		if(connectionState!=ConnectionState.CONNECTED) {
-    			String message = channelName + " connection state " + connectionState.name();
-    			message(message,MessageType.error);
-    			channelConnectStatus = statusCreate.createStatus(StatusType.ERROR,message,null);
-    			connectState = ConnectState.notConnected;
-    		} else {
-    			connectState = ConnectState.connected;
-    			channelConnectStatus = statusCreate.getStatusOK();
-    		}   
-    		if(waitingForConnect) waitForConnect.signal();
-    	} finally {
-    		lock.unlock();
-    	}
+        lock.lock();
+        try {
+            if(isDestroyed) return;
+            boolean waitingForConnect = false;
+            if(connectState==ConnectState.connectActive) waitingForConnect = true;
+            if(connectionState!=ConnectionState.CONNECTED) {
+                String message = channelName + " connection state " + connectionState.name();
+                message(message,MessageType.error);
+                channelConnectStatus = statusCreate.createStatus(StatusType.ERROR,message,null);
+                connectState = ConnectState.notConnected;
+            } else {
+                connectState = ConnectState.connected;
+                channelConnectStatus = statusCreate.getStatusOK();
+            }   
+            if(waitingForConnect) waitForConnect.signal();
+        } finally {
+            lock.unlock();
+        }
     }
 
     /* (non-Javadoc)
@@ -223,13 +223,13 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public void destroy()
     {
-    	synchronized (this) {
+        synchronized (this) {
             if(isDestroyed) return;
             isDestroyed = true;
         }
         if(channel!=null) {
-        	channel.destroy();
-        	channel=null;
+            channel.destroy();
+            channel=null;
         }
         pvaClientGetCache.destroy();
         pvaClientPutCache.destroy();
@@ -254,12 +254,19 @@ public class PvaClientChannel implements ChannelRequester,Requester{
         if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
         return channel;
     }
-
+    /**
+     * connect with timeout set to 5 seconds.
+     */
+    public void connect()
+    {
+        connect(5.0);
+    }
     /**
      * Connect to the channel.
      * This calls issueConnect and waitConnect.
      * 
      * @param timeout The time to wait for connecting to the channel.
+     * A value of 0.0 means forever.
      * @throws RuntimeException if connection fails.
      */
     public void connect(double timeout)
@@ -280,31 +287,31 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public void issueConnect()
     {
-    	lock.lock();
-    	try {
-    		if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
-    		if(connectState==ConnectState.connected) return;
-    		if(connectState!=ConnectState.connectIdle) {
-    			throw new RuntimeException("pvaClientChannel already connected");
-    		}
-    		channelConnectStatus = statusCreate.createStatus(
-    				StatusType.ERROR,
-    				getChannelName() + " createChannel failed",null);
-    		connectState = ConnectState.connectActive;	
-    	} finally {
-    		lock.unlock();
-    	}
-    	ChannelProvider provider = ChannelProviderRegistryFactory
-				.getChannelProviderRegistry().getProvider(providerName);
-		if(provider==null) {
-			String mess = getChannelName() + " provider " + providerName + " not registered";
-			throw new RuntimeException(mess);
-		}
-		channel = provider.createChannel(channelName, this, ChannelProvider.PRIORITY_DEFAULT);
-		if(channel==null) {
-			String mess = getChannelName() + " channelCreate failed ";
-			throw new RuntimeException(mess);
-		}
+        lock.lock();
+        try {
+            if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
+            if(connectState==ConnectState.connected) return;
+            if(connectState!=ConnectState.connectIdle) {
+                throw new RuntimeException("pvaClientChannel already connected");
+            }
+            channelConnectStatus = statusCreate.createStatus(
+                    StatusType.ERROR,
+                    getChannelName() + " createChannel failed",null);
+            connectState = ConnectState.connectActive;	
+        } finally {
+            lock.unlock();
+        }
+        ChannelProvider provider = ChannelProviderRegistryFactory
+                .getChannelProviderRegistry().getProvider(providerName);
+        if(provider==null) {
+            String mess = getChannelName() + " provider " + providerName + " not registered";
+            throw new RuntimeException(mess);
+        }
+        channel = provider.createChannel(channelName, this, ChannelProvider.PRIORITY_DEFAULT);
+        if(channel==null) {
+            String mess = getChannelName() + " channelCreate failed ";
+            throw new RuntimeException(mess);
+        }
     }
 
     /**
@@ -315,21 +322,23 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public Status waitConnect(double timeout)
     {
-
-
         if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
-    	if(channel.isConnected()) return channelConnectStatus;
-    	lock.lock();
-    	try {
-    		long nano = (long)(timeout*1e9);
-    		waitForConnect.awaitNanos(nano);
-    	} catch(InterruptedException e) {
-    		Status status = statusCreate.createStatus(StatusType.ERROR,e.getMessage(), e.fillInStackTrace());
-    		return status;
-    	} finally {
-		    lock.unlock();
-	    }
-    	return channelConnectStatus;
+        if(channel.isConnected()) return channelConnectStatus;
+        lock.lock();
+        try {
+            if(timeout>0.0) {
+                long nano = (long)(timeout*1e9);
+                waitForConnect.awaitNanos(nano);
+            } else {
+                waitForConnect.await();
+            }
+        } catch(InterruptedException e) {
+            Status status = statusCreate.createStatus(StatusType.ERROR,e.getMessage(), e.fillInStackTrace());
+            return status;
+        } finally {
+            lock.unlock();
+        }
+        return channelConnectStatus;
     }
 
 
@@ -356,6 +365,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     /**
      * Calls the next method with request = "";
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientProcess createProcess()
     {
@@ -366,13 +376,14 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * First call createRequest as implemented by pvDataJava and then calls the next method.
      * @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientProcess createProcess(String request)
     {
         PVStructure pvRequest = createRequest.createRequest(request);
         if(pvRequest==null) {
             String mess = "channel " + getChannelName() 
-                    + " PvaClientChannel::createProcess invalid pvRequest: " + createRequest.getMessage();
+            + " PvaClientChannel::createProcess invalid pvRequest: " + createRequest.getMessage();
             throw new RuntimeException(mess);
         }
         return createProcess(pvRequest);
@@ -382,6 +393,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * Creates a PvaClientProcess. 
      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientProcess createProcess(PVStructure pvRequest)
     {
@@ -392,6 +404,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     /**
      * Call the next method with request =  "value,alarm,timeStamp" 
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientGet get()
     {
@@ -404,6 +417,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * If connection or get can not be made an exception is thrown.
      * @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientGet get(String request)
     {
@@ -418,6 +432,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     /**
      * Call the next method with request =  "value,alarm,timeStamp" 
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientGet createGet()
     {
@@ -427,13 +442,14 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * First call createRequest as implemented by pvDataJava and then calls the next method.
      * @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientGet createGet(String request)
     {
         PVStructure pvRequest = createRequest.createRequest(request);
         if(pvRequest==null) {
             String mess = "channel " + getChannelName() 
-                    + " PvaClientChannel::createGet invalid pvRequest: " + createRequest.getMessage();
+            + " PvaClientChannel::createGet invalid pvRequest: " + createRequest.getMessage();
             throw new RuntimeException(mess);
         }
         return createGet(pvRequest);
@@ -442,6 +458,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * Creates a pvaClientGet.
      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientGet createGet(PVStructure pvRequest)
     {
@@ -452,6 +469,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     /**
      * Call the next method with request =  "field(value)" 
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientPut put()
     {
@@ -464,6 +482,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      *  If connection can not be made an exception is thrown.
      *  @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientPut put(String request)
     {
@@ -479,6 +498,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     /**
      *  Call the next method with request = "field(value)" 
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientPut createPut()
     {
@@ -489,14 +509,15 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * First call createRequest as implemented by pvDataJava and then calls the next method.
      * @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientPut createPut(String request)
     {
         PVStructure pvRequest = createRequest.createRequest(request);
         if(pvRequest==null) {
             String mess = "channel " + getChannelName() 
-                    + " PvaClientChannel::createPut invalid pvRequest: "
-                    + createRequest.getMessage();
+            + " PvaClientChannel::createPut invalid pvRequest: "
+            + createRequest.getMessage();
             throw new RuntimeException(mess);
         }
         return createPut(pvRequest);
@@ -506,6 +527,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * Create an PvaClientPut.
      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientPut createPut(PVStructure pvRequest)
     {
@@ -516,6 +538,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     /**
      *  Call the next method with request = "record[process=true]putField(argument)getField(result)".
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientPutGet createPutGet()
     {
@@ -525,14 +548,15 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * First call createRequest as implemented by pvDataJava and then calls the next method.
      * @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientPutGet createPutGet(String request)
     {
         PVStructure pvRequest = createRequest.createRequest(request);
         if(pvRequest==null) {
             String mess = "channel " + getChannelName() 
-                    + " PvaClientChannel::createPutGet invalid pvRequest: "
-                    + createRequest.getMessage();
+            + " PvaClientChannel::createPutGet invalid pvRequest: "
+            + createRequest.getMessage();
             throw new RuntimeException(mess);
         }
         return createPutGet(pvRequest);
@@ -542,6 +566,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * Create an PvaClientPutGet.
      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientPutGet createPutGet(PVStructure pvRequest)
     {
@@ -552,6 +577,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     /**
      * Call the next method with request = "field(value)";
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public  PvaClientArray createArray()
     {
@@ -562,14 +588,15 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * First call createRequest as implemented by pvDataJava and then calls the next method.
      * @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientArray createArray(String request)
     {
         PVStructure pvRequest = createRequest.createRequest(request);
         if(pvRequest==null) {
             String mess = "channel " + getChannelName() 
-                    + " PvaClientChannel::createArray invalid pvRequest: "
-                    + createRequest.getMessage();
+            + " PvaClientChannel::createArray invalid pvRequest: "
+            + createRequest.getMessage();
             throw new RuntimeException(mess);
         }
         return createArray(pvRequest);
@@ -578,6 +605,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * Create a pvaClientArray.
      * @param pvRequest The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientArray createArray(PVStructure pvRequest)
     {
@@ -589,6 +617,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     /**
      * Call the next method with request =  "value,alarm,timeStamp" 
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientMonitor monitor()
     {
@@ -601,6 +630,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * If connection can not be made an exception is thrown.
      * @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientMonitor monitor(String request)
     {
@@ -614,6 +644,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * Call the next method with request =  "value,alarm,timeStamp" 
      * @param pvaClientMonitorRequester The client callback.
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientMonitor monitor(
             PvaClientMonitorRequester pvaClientMonitorRequester)
@@ -628,6 +659,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * @param request The request as described in package org.epics.pvdata.copy
      * @param pvaClientMonitorRequester The client callback.
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientMonitor monitor(
             String request,
@@ -643,6 +675,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     /**
      * Call the next method with request = "field(value.alarm,timeStamp)" 
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientMonitor createMonitor()
     {
@@ -652,14 +685,15 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * First call createRequest as implemented by pvDataJava and then calls the next method.
      * @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientMonitor createMonitor(String request)
     {
         PVStructure pvRequest = createRequest.createRequest(request);
         if(pvRequest==null) {
             String mess = "channel " + getChannelName() 
-                    + " PvaClientChannel::createMonitor invalid pvRequest: "
-                    + createRequest.getMessage();
+            + " PvaClientChannel::createMonitor invalid pvRequest: "
+            + createRequest.getMessage();
             throw new RuntimeException(mess);
         }
         return createMonitor(pvRequest);
@@ -668,6 +702,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * Create an PvaClientMonitor.
      * @param pvRequest  The syntax of pvRequest is described in package org.epics.pvdata.copy.
      * @return The interface.
+     * @throws RuntimeException if create fails.
      */
     public PvaClientMonitor createMonitor(PVStructure pvRequest)
     {
@@ -681,11 +716,11 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     {
         return pvaClientGetCache.toString() + pvaClientPutCache.toString();
     }
-     /** Get the number of cached gets and puts.
+    /** Get the number of cached gets and puts.
      */
     public int cacheSize()
     {
-          return pvaClientGetCache.cacheSize() + pvaClientPutCache.cacheSize();
+        return pvaClientGetCache.cacheSize() + pvaClientPutCache.cacheSize();
     }
-   
+
 }

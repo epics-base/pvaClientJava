@@ -142,7 +142,7 @@ public class PvaClientGet implements ChannelGetRequester
 
     /**
      * call issueConnect and then waitConnect.
-     * An exception is thrown if connect fails.
+     * @throws RuntimeException if create fails.
      */
     public void connect()
     {
@@ -210,7 +210,7 @@ public class PvaClientGet implements ChannelGetRequester
     }
     /**
      * Call issueGet and then waitGet.
-     * An exception is thrown if get fails
+     * @throws RuntimeException if create fails.
      */
     public void get()
     {

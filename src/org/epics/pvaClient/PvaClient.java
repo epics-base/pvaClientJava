@@ -142,9 +142,9 @@ public class PvaClient implements Requester {
     /**
      * Get a cached channel or create and connect to a new channel.
      * The provider is pva. The timeout is 5 seconds.
-     * If connection can not be made an exception is thrown.
      * @param channelName The channelName.
      * @return The interface.
+     * @throws RuntimeException if connection fails.
      */
     public PvaClientChannel channel(String channelName)
     {
@@ -153,11 +153,11 @@ public class PvaClient implements Requester {
 
     /**
      * Get a cached channel or create and connect to a new channel.
-     * If connection can not be made an exception is thrown.
      * @param channelName The channelName.
      * @param providerName The provider name.
      * @param timeOut The time to wait for a connection.
      * @return The interface.
+     * @throws RuntimeException if connection fails.
      */
     public PvaClientChannel channel(
             String channelName,
@@ -176,6 +176,7 @@ public class PvaClient implements Requester {
      * Create an PvaClientChannel. The provider is pvAccess.
      * @param channelName The channelName.
      * @return The interface.
+     * @throws RuntimeException if connection fails.
      */
     public PvaClientChannel createChannel(String channelName)
     {
@@ -187,6 +188,7 @@ public class PvaClient implements Requester {
      * @param channelName The channelName.
      * @param providerName The provider.
      * @return The interface or null if the provider does not exist.
+     * @throws RuntimeException if connection fails.
      */
     public PvaClientChannel createChannel(String channelName,String providerName)
     {
