@@ -59,6 +59,7 @@ public class PvaClientNTMultiData
      * @param pvaClientMultiChannel The interface to PvaClientMultiChannel.
      * @param pvaClientChannelArray The PvaClientChannel array.
      * @param pvRequest The pvRequest for each channel.
+     * @return The interface.
      */
     public static PvaClientNTMultiData create(
             Union  u,

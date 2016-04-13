@@ -340,6 +340,7 @@ public class PvaClientPutData {
      * Put the value as a double.
      * An exception is also thrown if the actualy type can cause an overflow.
      * If value is not a numeric scalar an exception is thrown.
+     * @param value The new data value.
      */
     public void putDouble(double value)
     {
@@ -357,6 +358,7 @@ public class PvaClientPutData {
     /**
      * Put the value as a string.
      * If value is not a  scalar an exception is thrown.
+     * @param value The new value as a String.
      */
     public void putString(String value)
     {

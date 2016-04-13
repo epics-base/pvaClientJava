@@ -30,6 +30,9 @@ public class PvaClientPutGet implements ChannelPutGetRequester
 
     /**
      * Create new PvaClientPutGet.
+     * @param pvaClient The pvaClient
+     * @param channel The channel.
+     * @param pvRequest The pvRequest.
      * @return The interface.
      */
     static public PvaClientPutGet create(

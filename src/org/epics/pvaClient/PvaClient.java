@@ -26,21 +26,42 @@ import org.epics.pvdata.pv.Requester;
  *
  */
 public class PvaClient implements Requester {
-
     /**
      * Get the single instance of PvaClient.
+     * @param providerNames - comma or space separated list of provider names.
      * @return The interface to PvaClient.
      */
-    static public synchronized PvaClient get() {
+    static public synchronized PvaClient get(String providerNames) {
         if(pvaClient==null) {
             pvaClient = new PvaClient();
-            org.epics.pvaccess.ClientFactory.start();
-            org.epics.ca.ClientFactory.start();
+            String[] names = providerNames.replaceAll("^[,\\s]+", "").split("[,\\s]+");
+            for (String name : names)
+            {
+                if(name.equals("pva")) {
+                    org.epics.pvaccess.ClientFactory.start();
+                    pvaClient.pvaStarted = true;
+                } else if(name.equals("ca")) {
+                    org.epics.ca.ClientFactory.start();
+                    pvaClient.caStarted = true;
+                } else {
+                    System.err.println("PvaClient::get provider " + name  + " not known");
+                }
+            }
         }
         return pvaClient;
     }
+    /**
+     * Get the single instance of PvaClient.
+     * This connects to providers pva and ca.
+     * @return The interface to PvaClient.
+     */
+    static public synchronized PvaClient get() {
+       return get("pva ca");
+    }
 
     private static PvaClient pvaClient = null;
+    private boolean pvaStarted = false;
+    private boolean caStarted = false;
 
     static private class PvaClientChannelCache
     {
@@ -116,8 +137,8 @@ public class PvaClient implements Requester {
             isDestroyed = true;
         }
         pvaClientChannelCache.destroy();
-        org.epics.pvaccess.ClientFactory.stop();
-        org.epics.ca.ClientFactory.stop();
+        if(pvaStarted) org.epics.pvaccess.ClientFactory.stop();
+        if(caStarted) org.epics.ca.ClientFactory.stop();
     }
 
     /* (non-Javadoc)
@@ -189,6 +210,7 @@ public class PvaClient implements Requester {
      * @param providerName The provider.
      * @return The interface or null if the provider does not exist.
      * @throws RuntimeException if connection fails.
+     * @return The channel.
      */
     public PvaClientChannel createChannel(String channelName,String providerName)
     {
@@ -214,12 +236,14 @@ public class PvaClient implements Requester {
         requester = null;
     }
     /** Show the list of cached gets and puts.
+     * @return A String showing the cached channels.
      */
     public String showCache()
     {
          return pvaClientChannelCache.toString();
     }
      /** Get the number of cached gets and puts.
+      * @return The size.
      */
     public int cacheSize()
     {
