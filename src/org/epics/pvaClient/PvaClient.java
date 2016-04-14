@@ -34,7 +34,7 @@ public class PvaClient implements Requester {
     static public synchronized PvaClient get(String providerNames) {
         if(pvaClient==null) {
             pvaClient = new PvaClient();
-            String[] names = providerNames.split("[,\\s]+");
+            String[] names = providerNames.split("\\s+");
             for (String name : names)
             {
                 if(name.equals("pva")) {
