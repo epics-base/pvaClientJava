@@ -26,9 +26,9 @@ public class PvaClientProcess implements ChannelProcessRequester{
      * @return The interface.
      */
     static PvaClientProcess create(
-        PvaClient pvaClient,
-        Channel channel,
-        PVStructure pvRequest)
+            PvaClient pvaClient,
+            Channel channel,
+            PVStructure pvRequest)
     {
         return new PvaClientProcess(pvaClient,channel,pvRequest);
     }
@@ -41,7 +41,7 @@ public class PvaClientProcess implements ChannelProcessRequester{
         this.channel = channel;
         this.pvRequest = pvRequest;
     }
-    
+
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
 
     private enum ProcessConnectState {connectIdle,connectActive,connected};
@@ -80,7 +80,7 @@ public class PvaClientProcess implements ChannelProcessRequester{
         if(isDestroyed) throw new RuntimeException("pvaClientProcess was destroyed");
         pvaClient.message(message, messageType);
     }
-    
+
     /* (non-Javadoc)
      * @see org.epics.pvaccess.client.ChannelProcessRequester#channelProcessConnect(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelProcess)
      */
@@ -113,7 +113,7 @@ public class PvaClientProcess implements ChannelProcessRequester{
             lock.unlock();
         }
     }
-    
+
     /**
      * Destroy the EasyProcess.
      */

@@ -686,6 +686,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      * @param request The request as described in package org.epics.pvdata.copy
      * @return The interface.
      * @throws RuntimeException if create fails.
+     * @return The monitor.
      */
     public PvaClientMonitor createMonitor(String request)
     {
@@ -711,12 +712,14 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     }
 
     /** Show the list of cached gets and puts.
+     * @return A String showing the current cache.
      */
     public String showCache()
     {
         return pvaClientGetCache.toString() + pvaClientPutCache.toString();
     }
     /** Get the number of cached gets and puts.
+     * @return The size.
      */
     public int cacheSize()
     {

@@ -28,12 +28,12 @@ public class PvaClientMultiMonitorDouble
      * @return The interface.
      */
     static public PvaClientMultiMonitorDouble create(
-         PvaClientMultiChannel pvaClientMultiChannel,
-         PvaClientChannel[] pvaClientChannelArray)
+            PvaClientMultiChannel pvaClientMultiChannel,
+            PvaClientChannel[] pvaClientChannelArray)
     {
-          return new PvaClientMultiMonitorDouble(pvaClientMultiChannel,pvaClientChannelArray);
+        return new PvaClientMultiMonitorDouble(pvaClientMultiChannel,pvaClientChannelArray);
     }
-   
+
     /** Destroy the pvAccess connection.
      */
     public void destroy()
@@ -42,7 +42,7 @@ public class PvaClientMultiMonitorDouble
         isDestroyed = true;
         pvaClientChannelArray = null;
     }
-     /**
+    /**
      * Create a channel monitor for each channel.
      */
     public void connect()
@@ -51,20 +51,20 @@ public class PvaClientMultiMonitorDouble
         String request = "value";
         for(int i=0; i<nchannel; ++i)
         {
-             if(isConnected[i]) {
-                   pvaClientMonitor[i] = pvaClientChannelArray[i].createMonitor(request);
-                   pvaClientMonitor[i].issueConnect();
-             }
+            if(isConnected[i]) {
+                pvaClientMonitor[i] = pvaClientChannelArray[i].createMonitor(request);
+                pvaClientMonitor[i].issueConnect();
+            }
         }
         for(int i=0; i<nchannel; ++i)
         {
-             if(isConnected[i]) {
-                   Status status = pvaClientMonitor[i].waitConnect();
-                   if(status.isOK()) continue;
-                   String message = "channel " + pvaClientChannelArray[i].getChannelName();
-                   message += " PvaChannelMonitor::waitConnect " + status.getMessage();
-                   throw new RuntimeException(message);
-             }
+            if(isConnected[i]) {
+                Status status = pvaClientMonitor[i].waitConnect();
+                if(status.isOK()) continue;
+                String message = "channel " + pvaClientChannelArray[i].getChannelName();
+                message += " PvaChannelMonitor::waitConnect " + status.getMessage();
+                throw new RuntimeException(message);
+            }
         }
         isMonitorConnected = true;
     }
@@ -84,19 +84,19 @@ public class PvaClientMultiMonitorDouble
                 th.printStackTrace();
             }
         }
-       boolean result = false;
-       boolean[] isConnected = pvaClientMultiChannel.getIsConnected();
-       for(int i=0; i<nchannel; ++i)
-       {
+        boolean result = false;
+        boolean[] isConnected = pvaClientMultiChannel.getIsConnected();
+        for(int i=0; i<nchannel; ++i)
+        {
             if(isConnected[i]) {
-                 if(pvaClientMonitor[i].poll()) {
-                      doubleValue[i] = pvaClientMonitor[i].getData().getDouble();
-                      pvaClientMonitor[i].releaseEvent();
-                      result = true;
-                 }
+                if(pvaClientMonitor[i].poll()) {
+                    doubleValue[i] = pvaClientMonitor[i].getData().getDouble();
+                    pvaClientMonitor[i].releaseEvent();
+                    result = true;
+                }
             }
-       }
-       return result;
+        }
+        return result;
     }
     /**
      * Wait until poll returns true.
@@ -117,10 +117,10 @@ public class PvaClientMultiMonitorDouble
             } catch (Throwable th) {
                 th.printStackTrace();
             }
-              if(poll()) return true;
-              now.getCurrentTime();
-              double diff = start.diff(now, start);
-              if(diff>=waitForEvent) break;
+            if(poll()) return true;
+            now.getCurrentTime();
+            double diff = start.diff(now, start);
+            if(diff>=waitForEvent) break;
         }
         return false;
     }
@@ -134,8 +134,8 @@ public class PvaClientMultiMonitorDouble
     }
 
     private PvaClientMultiMonitorDouble(
-         PvaClientMultiChannel pvaClientMultiChannel,
-         PvaClientChannel[] pvaClientChannelArray)
+            PvaClientMultiChannel pvaClientMultiChannel,
+            PvaClientChannel[] pvaClientChannelArray)
     {
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
@@ -149,16 +149,16 @@ public class PvaClientMultiMonitorDouble
             }
         }  
     }
-    
+
     private final PvaClientMultiChannel pvaClientMultiChannel;
     private PvaClientChannel[] pvaClientChannelArray;
     private int nchannel;
-    
+
     private double[] doubleValue;
     boolean isGetConnected = false;
     private PvaClientMonitor[] pvaClientMonitor;
     boolean isMonitorConnected;
     boolean isDestroyed = false;
-    
+
 };
 

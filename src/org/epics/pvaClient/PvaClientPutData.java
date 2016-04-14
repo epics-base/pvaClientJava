@@ -47,7 +47,7 @@ public class PvaClientPutData {
             if(i==0) {
                 pvField = pvStructure;
             } else {
-                 pvField = pvStructure.getSubField(i);
+                pvField = pvStructure.getSubField(i);
             }
             pvField.setPostHandler(postHandler[i]);
         }
@@ -81,7 +81,7 @@ public class PvaClientPutData {
 
     private String messagePrefix = "";
     private PVField pvValue = null;
-    
+
     private final DoubleArrayData doubleArrayData = new DoubleArrayData();
     private final StringArrayData stringArrayData = new StringArrayData();
 
@@ -340,6 +340,7 @@ public class PvaClientPutData {
      * Put the value as a double.
      * An exception is also thrown if the actualy type can cause an overflow.
      * If value is not a numeric scalar an exception is thrown.
+     * @param value The new data value.
      */
     public void putDouble(double value)
     {
@@ -357,11 +358,12 @@ public class PvaClientPutData {
     /**
      * Put the value as a string.
      * If value is not a  scalar an exception is thrown.
+     * @param value The new value as a String.
      */
     public void putString(String value)
     {
-         PVScalar pvScalar = getScalarValue();
-         convert.fromString(pvScalar,value);
+        PVScalar pvScalar = getScalarValue();
+        convert.fromString(pvScalar,value);
     }
 
     /**

@@ -59,6 +59,7 @@ public class PvaClientNTMultiData
      * @param pvaClientMultiChannel The interface to PvaClientMultiChannel.
      * @param pvaClientChannelArray The PvaClientChannel array.
      * @param pvRequest The pvRequest for each channel.
+     * @return The interface.
      */
     public static PvaClientNTMultiData create(
             Union  u,
@@ -68,7 +69,7 @@ public class PvaClientNTMultiData
     {
         return new PvaClientNTMultiData(u,pvaClientMultiChannel,pvaClientChannelArray,pvRequest);
     }
-    
+
     private PvaClientNTMultiData(
             Union  u,
             PvaClientMultiChannel pvaClientMultiChannel,
@@ -131,14 +132,14 @@ public class PvaClientNTMultiData
     {
         topPVStructure[index] = pvStructure;
     }
-    
+
     private static final PVDataCreate pvDataCreate = PVDataFactory.getPVDataCreate();
     private static final Convert convert = ConvertFactory.getConvert();
     private final PvaClientMultiChannel pvaClientMultiChannel;
     private final PvaClientChannel[] pvaClientChannelArray;
     private final int nchannel;
     private final ReentrantLock lock = new ReentrantLock();
-   
+
     private PVStructure[] topPVStructure;
     private boolean gotAlarm = false;
     private boolean gotTimeStamp = false;
@@ -160,7 +161,7 @@ public class PvaClientNTMultiData
     private Alarm alarm = new Alarm();
     private TimeStamp timeStamp = TimeStampFactory.create();
     private PVTimeStamp pvTimeStamp = PVTimeStampFactory.create();
-    
+
     /** Destroy the pvAccess connection.
      */
     public void destroy()
@@ -192,7 +193,7 @@ public class PvaClientNTMultiData
      */
     public void startDeltaTime()
     {
-        
+
         for(int i=0; i<nchannel; ++i)
         {
             topPVStructure[i] = null;
@@ -241,7 +242,7 @@ public class PvaClientNTMultiData
                 }
             }
         }
-        
+
     }
     /**
      * Get the time when the last get was made.
