@@ -30,12 +30,12 @@ public class PvaClientMultiGetDouble
      * @return The interface.
      */
     static public PvaClientMultiGetDouble create(
-         PvaClientMultiChannel pvaClientMultiChannel,
-         PvaClientChannel[] pvaClientChannelArray)
+            PvaClientMultiChannel pvaClientMultiChannel,
+            PvaClientChannel[] pvaClientChannelArray)
     {
-          return new PvaClientMultiGetDouble(pvaClientMultiChannel,pvaClientChannelArray);
+        return new PvaClientMultiGetDouble(pvaClientMultiChannel,pvaClientChannelArray);
     }
-    
+
 
     /** Destroy the pvAccess connection.
      */
@@ -45,7 +45,7 @@ public class PvaClientMultiGetDouble
         isDestroyed = true;
         pvaClientChannelArray = null;
     }
-     /**
+    /**
      * Create a channelGet for each channel.
      */
     public void connect()
@@ -54,20 +54,20 @@ public class PvaClientMultiGetDouble
         String request = "value";
         for(int i=0; i<nchannel; ++i)
         {
-             if(isConnected[i]) {
-                   pvaClientGet[i] = pvaClientChannelArray[i].createGet(request);
-                   pvaClientGet[i].issueConnect();
-             }
+            if(isConnected[i]) {
+                pvaClientGet[i] = pvaClientChannelArray[i].createGet(request);
+                pvaClientGet[i].issueConnect();
+            }
         }
         for(int i=0; i<nchannel; ++i)
         {
-             if(isConnected[i]) {
-                   Status status = pvaClientGet[i].waitConnect();
-                   if(status.isOK()) continue;
-                   String message = "channel " + pvaClientChannelArray[i].getChannelName();
-                   message += " PvaChannelGet::waitConnect " + status.getMessage();
-                   throw new RuntimeException(message);
-             }
+            if(isConnected[i]) {
+                Status status = pvaClientGet[i].waitConnect();
+                if(status.isOK()) continue;
+                String message = "channel " + pvaClientChannelArray[i].getChannelName();
+                message += " PvaChannelGet::waitConnect " + status.getMessage();
+                throw new RuntimeException(message);
+            }
         }
         isGetConnected = true;
     }
@@ -79,24 +79,24 @@ public class PvaClientMultiGetDouble
     {
         if(!isGetConnected) connect();
         boolean[] isConnected = pvaClientMultiChannel.getIsConnected();
-        
+
         for(int i=0; i<nchannel; ++i)
         {
-             if(isConnected[i]) {
-                   pvaClientGet[i].issueGet();
-             }
+            if(isConnected[i]) {
+                pvaClientGet[i].issueGet();
+            }
         }
         for(int i=0; i<nchannel; ++i)
         {
-             if(isConnected[i]) {
-                 Status status = pvaClientGet[i].waitGet();
-                 if(status.isOK()) continue;
-                 String message = "channel " + pvaClientChannelArray[i].getChannelName();
-                 message += " PvaChannelGet::waitGet " + status.getMessage();
-                 throw new RuntimeException(message);
-             }
+            if(isConnected[i]) {
+                Status status = pvaClientGet[i].waitGet();
+                if(status.isOK()) continue;
+                String message = "channel " + pvaClientChannelArray[i].getChannelName();
+                message += " PvaChannelGet::waitGet " + status.getMessage();
+                throw new RuntimeException(message);
+            }
         }
-        
+
         for(int i=0; i<nchannel; ++i)
         {
             if(isConnected[i])
@@ -110,10 +110,10 @@ public class PvaClientMultiGetDouble
         return doubleValue;
     }
 
-    
+
     private PvaClientMultiGetDouble(
-         PvaClientMultiChannel pvaClientMultiChannel,
-         PvaClientChannel[] pvaClientChannelArray)
+            PvaClientMultiChannel pvaClientMultiChannel,
+            PvaClientChannel[] pvaClientChannelArray)
     {
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
@@ -131,7 +131,7 @@ public class PvaClientMultiGetDouble
     private final PvaClientMultiChannel pvaClientMultiChannel;
     private PvaClientChannel[] pvaClientChannelArray;
     private int nchannel;
-    
+
     private double[] doubleValue;
     private PvaClientGet[] pvaClientGet;
     boolean isGetConnected = false;

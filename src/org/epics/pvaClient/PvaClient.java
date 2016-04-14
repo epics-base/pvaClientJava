@@ -28,13 +28,13 @@ import org.epics.pvdata.pv.Requester;
 public class PvaClient implements Requester {
     /**
      * Get the single instance of PvaClient.
-     * @param providerNames - comma or space separated list of provider names.
+     * @param providerNames - space separated list of provider names.
      * @return The interface to PvaClient.
      */
     static public synchronized PvaClient get(String providerNames) {
         if(pvaClient==null) {
             pvaClient = new PvaClient();
-            String[] names = providerNames.replaceAll("^[,\\s]+", "").split("[,\\s]+");
+            String[] names = providerNames.split("[,\\s]+");
             for (String name : names)
             {
                 if(name.equals("pva")) {

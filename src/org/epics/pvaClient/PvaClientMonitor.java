@@ -41,11 +41,11 @@ public class PvaClientMonitor implements MonitorRequester{
             PvaClient pvaClient,
             Channel channel,
             PVStructure pvRequest)
-            {
+    {
         this.pvaClient = pvaClient;
         this.channel = channel;
         this.pvRequest = pvRequest;
-            }
+    }
 
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
 
@@ -64,7 +64,7 @@ public class PvaClientMonitor implements MonitorRequester{
     private volatile Status connectStatus = statusCreate.getStatusOK();
     private volatile Monitor monitor = null;
     private volatile MonitorElement monitorElement = null;
-    
+
 
     private volatile MonitorConnectState connectState = MonitorConnectState.connectIdle;
     private volatile boolean userPoll = false;
@@ -164,7 +164,7 @@ public class PvaClientMonitor implements MonitorRequester{
         Status status =  waitConnect();
         if(status.isOK()) return;
         String message =  "channel " + channel.getChannelName()
-            + " PvaClientMonitor::connect " + status.getMessage();
+        + " PvaClientMonitor::connect " + status.getMessage();
         throw new RuntimeException(message);
     }
     /**
@@ -177,7 +177,7 @@ public class PvaClientMonitor implements MonitorRequester{
         if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
         if(connectState!=MonitorConnectState.connectIdle) {
             String message =  "channel " + channel.getChannelName() 
-                + " pvaClientMonitor already connected" ;
+            + " pvaClientMonitor already connected" ;
             throw new RuntimeException(message);
         }
         connectState = MonitorConnectState.connectActive;
@@ -198,7 +198,7 @@ public class PvaClientMonitor implements MonitorRequester{
             }
             if(connectState!=MonitorConnectState.connectActive) {
                 String message =  "channel " + channel.getChannelName() 
-                        + " pvaClientMonitor illegal connect state ";
+                + " pvaClientMonitor illegal connect state ";
                 throw new RuntimeException(message);
             }
             try {

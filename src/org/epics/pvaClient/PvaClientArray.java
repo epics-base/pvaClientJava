@@ -20,10 +20,10 @@ public class PvaClientArray
      * @return The interface.
      */
     static PvaClientArray create(
-        PvaClient pvaClient,
-        PvaClientChannel pvaClientChannel,
-        Channel channel,
-        PVStructure pvRequest)
+            PvaClient pvaClient,
+            PvaClientChannel pvaClientChannel,
+            Channel channel,
+            PVStructure pvRequest)
     {
         throw new RuntimeException("pvaClientArray not implemented");
     }

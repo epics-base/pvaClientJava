@@ -47,7 +47,7 @@ public class PvaClientPutData {
             if(i==0) {
                 pvField = pvStructure;
             } else {
-                 pvField = pvStructure.getSubField(i);
+                pvField = pvStructure.getSubField(i);
             }
             pvField.setPostHandler(postHandler[i]);
         }
@@ -81,7 +81,7 @@ public class PvaClientPutData {
 
     private String messagePrefix = "";
     private PVField pvValue = null;
-    
+
     private final DoubleArrayData doubleArrayData = new DoubleArrayData();
     private final StringArrayData stringArrayData = new StringArrayData();
 
@@ -362,8 +362,8 @@ public class PvaClientPutData {
      */
     public void putString(String value)
     {
-         PVScalar pvScalar = getScalarValue();
-         convert.fromString(pvScalar,value);
+        PVScalar pvScalar = getScalarValue();
+        convert.fromString(pvScalar,value);
     }
 
     /**

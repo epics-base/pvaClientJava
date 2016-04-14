@@ -70,7 +70,7 @@ public class PvaClientMonitorData {
 
     private final DoubleArrayData doubleArrayData = new DoubleArrayData();
     private final StringArrayData stringArrayData = new StringArrayData();
-    
+
     /**
      * This is called by pvaClientMonitor when it gets a monitor.
      * @param monitorElement The new data.

@@ -54,7 +54,7 @@ public class PvaClientNTMultiMonitor
         Union u = fieldCreate.createVariantUnion();
         return new PvaClientNTMultiMonitor(u,pvaClientMultiChannel,pvaClientChannelArray,pvRequest);
     }
-    
+
     private PvaClientNTMultiMonitor(
             Union  u,
             PvaClientMultiChannel pvaClientMultiChannel,

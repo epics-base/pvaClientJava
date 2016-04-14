@@ -39,7 +39,7 @@ public class PvaClientMultiChannel
     {
         return create(pvaClient,channelNames,"pva",0);
     }
-    
+
     private PvaClientMultiChannel(
             PvaClient pvaClient,
             String[] channelNames,
@@ -276,9 +276,9 @@ public class PvaClientMultiChannel
         PVStructure pvRequest = createRequest.createRequest(request);
         if(pvRequest==null) {
             String message = " PvaClientMultiChannel::createNTGet invalid pvRequest: "
-                 + createRequest.getMessage();
+                    + createRequest.getMessage();
             throw new RuntimeException(message);
-            
+
         }
         return PvaClientNTMultiGet.create(this, pvaClientChannelArray,pvRequest);
     }
@@ -302,9 +302,9 @@ public class PvaClientMultiChannel
         PVStructure pvRequest = createRequest.createRequest(request);
         if(pvRequest==null) {
             String message = " PvaClientMultiChannel::createNTMonitor invalid pvRequest: "
-                 + createRequest.getMessage();
+                    + createRequest.getMessage();
             throw new RuntimeException(message);
-            
+
         }
         return PvaClientNTMultiMonitor.create(this, pvaClientChannelArray,pvRequest);
     }

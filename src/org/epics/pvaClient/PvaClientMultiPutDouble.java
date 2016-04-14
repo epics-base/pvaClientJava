@@ -28,13 +28,13 @@ public class PvaClientMultiPutDouble
      * @return The interface.
      */
     static public PvaClientMultiPutDouble create(
-         PvaClientMultiChannel pvaClientMultiChannel,
-         PvaClientChannel[] pvaClientChannelArray)
+            PvaClientMultiChannel pvaClientMultiChannel,
+            PvaClientChannel[] pvaClientChannelArray)
     {
-          return new PvaClientMultiPutDouble(pvaClientMultiChannel,pvaClientChannelArray);
+        return new PvaClientMultiPutDouble(pvaClientMultiChannel,pvaClientChannelArray);
     }
 
-   
+
     /** Destroy the pvAccess connection.
      */
     public void destroy()
@@ -43,7 +43,7 @@ public class PvaClientMultiPutDouble
         isDestroyed = true;
         pvaClientChannelArray = null;
     }
-     /**
+    /**
      * Create a channelPut for each channel.
      */
     public void connect()
@@ -52,20 +52,20 @@ public class PvaClientMultiPutDouble
         String request = "value";
         for(int i=0; i<nchannel; ++i)
         {
-             if(isConnected[i]) {
-                   pvaClientPut[i] = pvaClientChannelArray[i].createPut(request);
-                   pvaClientPut[i].issueConnect();
-             }
+            if(isConnected[i]) {
+                pvaClientPut[i] = pvaClientChannelArray[i].createPut(request);
+                pvaClientPut[i].issueConnect();
+            }
         }
         for(int i=0; i<nchannel; ++i)
         {
-             if(isConnected[i]) {
-                   Status status = pvaClientPut[i].waitConnect();
-                   if(status.isOK()) continue;
-                   String message = "channel " + pvaClientChannelArray[i].getChannelName();
-                   message += " PvaChannelPut::waitConnect " + status.getMessage();
-                   throw new RuntimeException(message);
-             }
+            if(isConnected[i]) {
+                Status status = pvaClientPut[i].waitConnect();
+                if(status.isOK()) continue;
+                String message = "channel " + pvaClientChannelArray[i].getChannelName();
+                message += " PvaChannelPut::waitConnect " + status.getMessage();
+                throw new RuntimeException(message);
+            }
         }
         isPutConnected = true;
     }
@@ -76,30 +76,30 @@ public class PvaClientMultiPutDouble
     {
         if(!isPutConnected) connect();
         if(data.length!=nchannel) {
-             throw new RuntimeException("data has wrong size");
+            throw new RuntimeException("data has wrong size");
         }
         boolean[] isConnected = pvaClientMultiChannel.getIsConnected();
         for(int i=0; i<nchannel; ++i)
         {
-             if(isConnected[i]) {
-                   PVStructure pvTop = pvaClientPut[i].getData().getPVStructure();
-                   PVDouble pvValue = pvTop.getSubField(PVDouble.class,"value");
-                   pvValue.put(data[i]);
-                   pvaClientPut[i].issuePut();
-             }
-             if(isConnected[i]) {
-                  Status status = pvaClientPut[i].waitPut();
-                  if(status.isOK())  continue;
-                  String message = "channel " + pvaClientChannelArray[i].getChannelName();
-                  message += " PvaChannelPut::waitConnect " + status.getMessage();
-                  throw new RuntimeException(message);
-             }
+            if(isConnected[i]) {
+                PVStructure pvTop = pvaClientPut[i].getData().getPVStructure();
+                PVDouble pvValue = pvTop.getSubField(PVDouble.class,"value");
+                pvValue.put(data[i]);
+                pvaClientPut[i].issuePut();
+            }
+            if(isConnected[i]) {
+                Status status = pvaClientPut[i].waitPut();
+                if(status.isOK())  continue;
+                String message = "channel " + pvaClientChannelArray[i].getChannelName();
+                message += " PvaChannelPut::waitConnect " + status.getMessage();
+                throw new RuntimeException(message);
+            }
         }
     }
 
     private PvaClientMultiPutDouble(
-         PvaClientMultiChannel pvaClientMultiChannel,
-         PvaClientChannel[] pvaClientChannelArray)
+            PvaClientMultiChannel pvaClientMultiChannel,
+            PvaClientChannel[] pvaClientChannelArray)
     {
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
@@ -117,11 +117,11 @@ public class PvaClientMultiPutDouble
     private final PvaClientMultiChannel pvaClientMultiChannel;
     private PvaClientChannel[] pvaClientChannelArray;
     private int nchannel;
-    
+
     private double[] doubleValue;
     private PvaClientPut[] pvaClientPut;
     boolean isPutConnected = false;
     boolean isDestroyed = false;
-    
-    
+
+
 };
