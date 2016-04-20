@@ -17,8 +17,10 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import org.epics.pvaccess.client.Channel;
+import org.epics.pvaccess.client.ChannelProviderRegistryFactory;
 import org.epics.pvdata.pv.MessageType;
 import org.epics.pvdata.pv.Requester;
+import org.epics.pvaccess.client.*;
 
 /**
  * PvaClient is a synchronous  interface to pvAccess.
@@ -33,6 +35,7 @@ public class PvaClient implements Requester {
      */
     static public synchronized PvaClient get(String providerNames) {
         if(pvaClient==null) {
+            ChannelProviderRegistry registry = ChannelProviderRegistryFactory.getChannelProviderRegistry();
             pvaClient = new PvaClient();
             String[] names = providerNames.split("\\s+");
             for (String name : names)
@@ -44,7 +47,9 @@ public class PvaClient implements Requester {
                     org.epics.ca.ClientFactory.start();
                     pvaClient.caStarted = true;
                 } else {
-                    System.err.println("PvaClient::get provider " + name  + " not known");
+                    if(registry.getProvider(name)==null) {
+                        System.err.println("PvaClient::get provider " + name  + " not known");
+                    }
                 }
             }
         }
