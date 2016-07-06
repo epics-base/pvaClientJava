@@ -148,41 +148,6 @@ public class PvaClientGetData {
         pvValue = pvStructure.getSubField("value");
     }
 
-    /**
-     * Get the alarm for the last get.
-     * @return The alarm.
-     */
-    public Alarm getAlarm()
-    {
-        if(pvStructure==null) throw new RuntimeException(messagePrefix + noStructure);
-        PVStructure pvs = pvStructure.getSubField(PVStructure.class,"alarm");
-        if(pvs==null) throw new RuntimeException(messagePrefix + noAlarm);
-        pvAlarm.attach(pvs);
-        if(pvAlarm.isAttached()) {
-            pvAlarm.get(alarm);
-            pvAlarm.detach();
-            return alarm;
-        }
-        throw new RuntimeException(messagePrefix + noAlarm);
-    }
-
-    /**
-     * Get the timeStamp for the last get.
-     * @return The timeStamp.
-     */
-    public TimeStamp getTimeStamp()
-    {
-        if(pvStructure==null) throw new RuntimeException(messagePrefix + noStructure);
-        PVStructure pvs = pvStructure.getSubField(PVStructure.class,"timeStamp");
-        if(pvs==null) throw new RuntimeException(messagePrefix + noTimeStamp);
-        pvTimeStamp.attach(pvs);
-        if(pvTimeStamp.isAttached()) {
-            pvTimeStamp.get(timeStamp);
-            pvTimeStamp.detach();
-            return timeStamp;
-        }
-        throw new RuntimeException(messagePrefix + noTimeStamp);
-    }
 
     /**
      * Is there a top level field named value of the PVstructure returned by channelGet?
@@ -368,5 +333,39 @@ public class PvaClientGetData {
         for(int i=0; i<length; ++i) value[i] = stringArrayData.data[i];
         return length;
     }
+    /**
+     * Get the alarm for the last get.
+     * @return The alarm.
+     */
+    public Alarm getAlarm()
+    {
+        if(pvStructure==null) throw new RuntimeException(messagePrefix + noStructure);
+        PVStructure pvs = pvStructure.getSubField(PVStructure.class,"alarm");
+        if(pvs==null) throw new RuntimeException(messagePrefix + noAlarm);
+        pvAlarm.attach(pvs);
+        if(pvAlarm.isAttached()) {
+            pvAlarm.get(alarm);
+            pvAlarm.detach();
+            return alarm;
+        }
+        throw new RuntimeException(messagePrefix + noAlarm);
+    }
 
+    /**
+     * Get the timeStamp for the last get.
+     * @return The timeStamp.
+     */
+    public TimeStamp getTimeStamp()
+    {
+        if(pvStructure==null) throw new RuntimeException(messagePrefix + noStructure);
+        PVStructure pvs = pvStructure.getSubField(PVStructure.class,"timeStamp");
+        if(pvs==null) throw new RuntimeException(messagePrefix + noTimeStamp);
+        pvTimeStamp.attach(pvs);
+        if(pvTimeStamp.isAttached()) {
+            pvTimeStamp.get(timeStamp);
+            pvTimeStamp.detach();
+            return timeStamp;
+        }
+        throw new RuntimeException(messagePrefix + noTimeStamp);
+    }
 }

@@ -10,7 +10,9 @@
  */
 package org.epics.pvaClient;
 
-import org.epics.pvdata.pv.PVDouble;
+import org.epics.pvdata.factory.ConvertFactory;
+import org.epics.pvdata.pv.Convert;
+import org.epics.pvdata.pv.PVScalar;
 import org.epics.pvdata.pv.PVStructure;
 import org.epics.pvdata.pv.Status;
 
@@ -39,6 +41,7 @@ public class PvaClientMultiPutDouble
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientMultiPutDouble::destroy()");
         if(isDestroyed) return;
         isDestroyed = true;
         pvaClientChannelArray = null;
@@ -83,8 +86,8 @@ public class PvaClientMultiPutDouble
         {
             if(isConnected[i]) {
                 PVStructure pvTop = pvaClientPut[i].getData().getPVStructure();
-                PVDouble pvValue = pvTop.getSubField(PVDouble.class,"value");
-                pvValue.put(data[i]);
+                PVScalar pvValue = pvTop.getSubField(PVScalar.class,"value");
+                convert.fromDouble(pvValue, data[i]);
                 pvaClientPut[i].issuePut();
             }
             if(isConnected[i]) {
@@ -101,24 +104,23 @@ public class PvaClientMultiPutDouble
             PvaClientMultiChannel pvaClientMultiChannel,
             PvaClientChannel[] pvaClientChannelArray)
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientMultiPutDouble::PvaClientMultiPutDouble()");
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
         nchannel = pvaClientChannelArray.length;
-        doubleValue = new double[nchannel];
         pvaClientPut = new PvaClientPut[nchannel];
         for(int i=0; i<nchannel; ++i) {
             {
                 pvaClientPut[i] = null;
-                doubleValue[i] = Double.NaN;
             }
         }
     }
 
     private final PvaClientMultiChannel pvaClientMultiChannel;
+    private static final Convert convert = ConvertFactory.getConvert();
     private PvaClientChannel[] pvaClientChannelArray;
     private int nchannel;
 
-    private double[] doubleValue;
     private PvaClientPut[] pvaClientPut;
     boolean isPutConnected = false;
     boolean isDestroyed = false;

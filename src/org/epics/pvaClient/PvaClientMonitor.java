@@ -45,6 +45,7 @@ public class PvaClientMonitor implements MonitorRequester{
         this.pvaClient = pvaClient;
         this.channel = channel;
         this.pvRequest = pvRequest;
+        if(PvaClient.getDebug()) System.out.println("PvaClientMonitor::PvaClientMonitor");
     }
 
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
@@ -54,6 +55,7 @@ public class PvaClientMonitor implements MonitorRequester{
     private final Channel channel;
     private final PVStructure pvRequest;
     private volatile PvaClientMonitorRequester monitorRequester = null;
+    private volatile PvaClientUnlistenRequester unlistenRequester = null;
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition waitForConnect = lock.newCondition();
     private final Condition waitForEvent = lock.newCondition();
@@ -125,6 +127,7 @@ public class PvaClientMonitor implements MonitorRequester{
         if(isDestroyed) throw new RuntimeException("pvaClientMonitor was destroyed");
         lock.lock();
         try {
+            if(PvaClient.getDebug()) System.out.println("PvaClientMonitor::monitorEvent");
             if(monitorRequester!=null) monitorRequester.event(this);
             if(!userWait) return;
             waitForEvent.signal();
@@ -137,7 +140,13 @@ public class PvaClientMonitor implements MonitorRequester{
      */
     @Override
     public void unlisten(Monitor monitor) {
-        destroy();
+        if(PvaClient.getDebug()) System.out.println("PvaClientMonitor::unlisten");
+        if(unlistenRequester!=null) {
+            unlistenRequester.unlisten(this);
+            return;
+        }
+        String message = "PvaClientMonitor::unlisten called but no requester to receive message";
+        System.err.println(message);
     }
 
     /**
@@ -145,6 +154,7 @@ public class PvaClientMonitor implements MonitorRequester{
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientMonitor::destroy");
         synchronized (this) {
             if(isDestroyed) return;
             isDestroyed = true;
@@ -215,7 +225,6 @@ public class PvaClientMonitor implements MonitorRequester{
             lock.unlock();
         }
     }
-
     /**
      * Optional request to be notified when monitors occur.
      * @param requester The requester which must be implemented by the caller.
@@ -224,7 +233,14 @@ public class PvaClientMonitor implements MonitorRequester{
     {
         monitorRequester = requester;
     }
-
+    /**
+     * Optional request to be notified when unlisten occur.
+     * @param requester The requester which must be implemented by the caller.
+     */
+    public void setUnlistenRequester(PvaClientUnlistenRequester requester)
+    {
+        unlistenRequester = requester;
+    }
     /**
      * Start monitoring.
      * This will wait until the monitor is connected.

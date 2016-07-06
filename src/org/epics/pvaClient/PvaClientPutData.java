@@ -56,11 +56,11 @@ public class PvaClientPutData {
 
     private static class PvaClientPostHandler implements PostHandler
     {
-        private PvaClientPutData easyData;
+        private PvaClientPutData putData;
         private int fieldNumber;
-        public PvaClientPostHandler(PvaClientPutData easyData,int fieldNumber)
-        {this.easyData = easyData; this.fieldNumber = fieldNumber;}
-        public void postPut() { easyData.postPut(fieldNumber);}
+        public PvaClientPostHandler(PvaClientPutData putData,int fieldNumber)
+        {this.putData = putData; this.fieldNumber = fieldNumber;}
+        public void postPut() { putData.postPut(fieldNumber);}
     };
 
     private static final Convert convert = ConvertFactory.getConvert();
@@ -68,8 +68,8 @@ public class PvaClientPutData {
     private static final String noValue = "no value field";
     private static final String noScalar = "value is not a scalar" ;
     private static final String notCompatibleScalar = "value is not a compatible scalar" ;
-    private static final String noArray = "value is not an array" ;
-    private static final String noScalarArray = "value is not a scalarArray" ;
+    private static final String notArray = "value is not an array" ;
+    private static final String notScalarArray = "value is not a scalarArray" ;
     private static final String notDoubleArray = "value is not a doubleArray" ;
     private static final String notStringArray = "value is not a stringArray" ;
 
@@ -214,7 +214,7 @@ public class PvaClientPutData {
 
         checkValue();
         PVArray pv = pvStructure.getSubField(PVArray.class,"value");
-        if(pv==null) throw new RuntimeException(messagePrefix  + noArray);
+        if(pv==null) throw new RuntimeException(messagePrefix  + notArray);
         return pv;
     }
 
@@ -226,7 +226,7 @@ public class PvaClientPutData {
     {
         checkValue();
         PVScalarArray pv = pvStructure.getSubField(PVScalarArray.class,"value");
-        if(pv==null) throw new RuntimeException(messagePrefix  + noScalarArray);
+        if(pv==null) throw new RuntimeException(messagePrefix  + notScalarArray);
         return pv;
     }
 

@@ -61,6 +61,7 @@ public class PvaClientNTMultiMonitor
             PvaClientChannel[] pvaClientChannelArray,
             PVStructure pvRequest)
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientNTMultiMonitor::PvaClientNTMultiMonitor()");
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
         this.pvRequest = pvRequest;
@@ -80,6 +81,7 @@ public class PvaClientNTMultiMonitor
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientNTMultiMonitor::destroy()");
         lock.lock();
         try {
             if(isDestroyed) return;

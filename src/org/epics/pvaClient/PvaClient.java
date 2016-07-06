@@ -61,18 +61,24 @@ public class PvaClient implements Requester {
      * @return The interface to PvaClient.
      */
     static public synchronized PvaClient get() {
-       return get("pva ca");
+        return get("pva ca");
     }
 
     private static PvaClient pvaClient = null;
+    private static boolean debug = false;
     private boolean pvaStarted = false;
     private boolean caStarted = false;
+    private static final PvaClientChannelCache pvaClientChannelCache = new PvaClientChannelCache();
+    private static final String pvaClientName = "pvaClient";
+    private static final String defaultProvider =
+            org.epics.pvaccess.ClientFactory.PROVIDER_NAME;
+    private Requester requester = null;
+    private boolean isDestroyed = false;
 
     static private class PvaClientChannelCache
     {
         public PvaClientChannelCache(){}
         
-       
         void destroy() {
         	Set<String> names = pvaClientChannelMap.keySet();
         	Iterator<String> iter = names.iterator();
@@ -93,7 +99,9 @@ public class PvaClient implements Requester {
         {
             Channel channel = pvaClientChannel.getChannel();
             String name = channel.getChannelName() + channel.getProvider().getProviderName();
-            if(pvaClientChannelMap.get(name)!=null) return;
+            if(pvaClientChannelMap.get(name)!=null) {
+                throw new RuntimeException("pvaClientChannelCache::addChannel channel already cached");
+            }
             pvaClientChannelMap.put(name, pvaClientChannel);
         }
         
@@ -123,14 +131,7 @@ public class PvaClient implements Requester {
              = new TreeMap<String,PvaClientChannel>();
     }
      
-    private static final PvaClientChannelCache pvaClientChannelCache
-        = new PvaClientChannelCache();
-    private static final String pvaClientName = "pvaClient";
-    private static final String defaultProvider =
-            org.epics.pvaccess.ClientFactory.PROVIDER_NAME;
     
-    private Requester requester = null;
-    private boolean isDestroyed = false;
 
     /**
      * Destroy all cached channels.
@@ -138,12 +139,22 @@ public class PvaClient implements Requester {
     public void destroy()
     {
         synchronized (this) {
-            if(isDestroyed) return;
+            if(isDestroyed) {
+                System.out.println("Why was PvaClient::destroy() called more then once????");
+                return;
+            }
             isDestroyed = true;
         }
+        if(PvaClient.getDebug()) System.out.println(pvaClientChannelCache.toString());
         pvaClientChannelCache.destroy();
-        if(pvaStarted) org.epics.pvaccess.ClientFactory.stop();
-        if(caStarted) org.epics.ca.ClientFactory.stop();
+        if(pvaStarted) {
+            System.out.println("calling org.epics.pvaccess.ClientFactory::stop()");
+            org.epics.pvaccess.ClientFactory.stop();
+        }
+        if(caStarted) {
+            System.out.println("calling org.epics.ca.ClientFactory::stop()");
+            org.epics.ca.ClientFactory.stop();
+        }
     }
 
     /* (non-Javadoc)
@@ -176,12 +187,27 @@ public class PvaClient implements Requester {
     {
         return channel(channelName,"pva",5.0);
     }
+    
+    /**
+     * Get a cached channel or create and connect to a new channel.
+     * The timeout is 5 seconds.
+     * @param channelName The channelName.
+     * @param providerName The provider name.
+     * @return The interface.
+     * @throws RuntimeException if connection fails.
+     */
+    public PvaClientChannel channel(
+            String channelName,
+            String providerName)
+    {
+        return channel(channelName,providerName,5.0);
+    }
 
     /**
      * Get a cached channel or create and connect to a new channel.
      * @param channelName The channelName.
      * @param providerName The provider name.
-     * @param timeOut The time to wait for a connection.
+     * @param timeOut The number of seconds to wait for connection. 0.0 means forever.
      * @return The interface.
      * @throws RuntimeException if connection fails.
      */
@@ -254,4 +280,12 @@ public class PvaClient implements Requester {
     {
          return pvaClientChannelCache.cacheSize();
     }
+    /** Should debug info be shown?
+     * @param value true or false
+     */
+    public static void setDebug(boolean value) {debug = value;}
+    /** Is debug set?
+     * @return true or false
+     */
+    public static boolean getDebug() {return debug;}
 }

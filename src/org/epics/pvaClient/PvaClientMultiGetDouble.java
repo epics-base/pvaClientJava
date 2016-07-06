@@ -41,6 +41,7 @@ public class PvaClientMultiGetDouble
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientMultiGetDouble::destroy()");
         if(isDestroyed) return;
         isDestroyed = true;
         pvaClientChannelArray = null;
@@ -115,6 +116,7 @@ public class PvaClientMultiGetDouble
             PvaClientMultiChannel pvaClientMultiChannel,
             PvaClientChannel[] pvaClientChannelArray)
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientMultiGetDouble::PvaClientMultiGetDouble()");
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
         nchannel = pvaClientChannelArray.length;

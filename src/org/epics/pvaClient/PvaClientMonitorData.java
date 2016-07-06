@@ -49,8 +49,8 @@ public class PvaClientMonitorData {
     private static final String noValue = "no value field";
     private static final String noScalar = "value is not a scalar" ;
     private static final String notCompatibleScalar = "value is not a compatible scalar" ;
-    private static final String noArray = "value is not an array" ;
-    private static final String noScalarArray = "value is not a scalarArray" ;
+    private static final String notArray = "value is not an array" ;
+    private static final String notScalarArray = "value is not a scalarArray" ;
     private static final String notDoubleArray = "value is not a doubleArray" ;
     private static final String notStringArray = "value is not a stringArray" ;
     private static final String noAlarm = "no alarm" ;
@@ -62,7 +62,7 @@ public class PvaClientMonitorData {
     private BitSet overrunBitSet = null;
 
     private String messagePrefix = "";
-    private PVField pvValue;
+    private PVField pvValue = null;
     private final PVAlarm pvAlarm = PVAlarmFactory.create();
     private final Alarm alarm = new Alarm();
     private final PVTimeStamp pvTimeStamp = PVTimeStampFactory.create();
@@ -242,7 +242,7 @@ public class PvaClientMonitorData {
 
         checkValue();
         PVArray pv = pvStructure.getSubField(PVArray.class,"value");
-        if(pv==null) throw new RuntimeException(messagePrefix  + noArray);
+        if(pv==null) throw new RuntimeException(messagePrefix  + notArray);
         return pv;
     }
 
@@ -254,7 +254,7 @@ public class PvaClientMonitorData {
     {
         checkValue();
         PVScalarArray pv = pvStructure.getSubField(PVScalarArray.class,"value");
-        if(pv==null) throw new RuntimeException(messagePrefix  + noScalarArray);
+        if(pv==null) throw new RuntimeException(messagePrefix  + notScalarArray);
         return pv;
     }
 

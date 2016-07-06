@@ -38,6 +38,7 @@ public class PvaClientMultiMonitorDouble
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientMultiMonitorDouble::destroy()");
         if(isDestroyed) return;
         isDestroyed = true;
         pvaClientChannelArray = null;
@@ -137,6 +138,7 @@ public class PvaClientMultiMonitorDouble
             PvaClientMultiChannel pvaClientMultiChannel,
             PvaClientChannel[] pvaClientChannelArray)
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientMultiMonitorDouble::PvaClientMultiMonitorDouble()");
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
         nchannel = pvaClientChannelArray.length;
@@ -155,9 +157,8 @@ public class PvaClientMultiMonitorDouble
     private int nchannel;
 
     private double[] doubleValue;
-    boolean isGetConnected = false;
     private PvaClientMonitor[] pvaClientMonitor;
-    boolean isMonitorConnected;
+    boolean isMonitorConnected = false;
     boolean isDestroyed = false;
 
 };
