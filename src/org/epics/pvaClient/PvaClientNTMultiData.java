@@ -76,6 +76,7 @@ public class PvaClientNTMultiData
             PvaClientChannel[]  pvaClientChannelArray,
             PVStructure pvRequest)
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientNTMultiData::PvaClientNTMultiData()");
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
         nchannel = pvaClientChannelArray.length;
@@ -166,6 +167,7 @@ public class PvaClientNTMultiData
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientNTMultiData::destroy()");
         lock.lock();
         try {
             if(isDestroyed) return;

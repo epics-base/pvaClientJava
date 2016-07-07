@@ -16,7 +16,6 @@ import org.epics.pvdata.pv.PVStructure;
 import org.epics.pvdata.pv.Status;
 import org.epics.pvdata.pv.StatusCreate;
 import org.epics.pvdata.pv.Structure;
-import org.epics.pvdata.pv.Status.StatusType;
 
 /**
  * This is a synchronous alternative to ChannelGet
@@ -40,6 +39,10 @@ public class PvaClientGet implements ChannelGetRequester
         this.pvaClient = pvaClient;
         this.channel = channel;
         this.pvRequest = pvRequest;
+        if(PvaClient.getDebug()) {
+            System.out.println("PvaClientGet::PvaClientGet"
+                + " channelName "  + channel.getChannelName());
+        }
     }
 
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
@@ -64,7 +67,7 @@ public class PvaClientGet implements ChannelGetRequester
     private enum GetState {getIdle,getActive,getComplete};
     private volatile GetState getState = GetState.getIdle;
 
-    private void checkConnected() {
+    private void checkGetState() {
         if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
         if(connectState==GetConnectState.connectIdle) connect();
         if(getState==GetState.getIdle) get();
@@ -95,6 +98,11 @@ public class PvaClientGet implements ChannelGetRequester
         if(isDestroyed) return;
         lock.lock();
         try {
+            if(PvaClient.getDebug()) {
+                System.out.println("PvaClientGet::channelGetConnect"
+                    + " channelName "  + channel.getChannelName()
+                    + " status " + status);
+            }
             channelGetConnectStatus = status;
             connectState = GetConnectState.connected;
             this.channelGet = channelGet;
@@ -116,6 +124,11 @@ public class PvaClientGet implements ChannelGetRequester
         if(isDestroyed) return;
         lock.lock();
         try {
+            if(PvaClient.getDebug()) {
+                System.out.println("PvaClientGet::getDone"
+                    + " channelName "  + channel.getChannelName()
+                    + " status " + status);
+            }
             channelGetStatus = status;
             getState = GetState.getComplete;
             if(status.isOK()) {
@@ -132,6 +145,10 @@ public class PvaClientGet implements ChannelGetRequester
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) {
+            System.out.println("PvaClientGet::destroy"
+                + " channelName "  + channel.getChannelName());
+        }
         synchronized (this) {
             if(isDestroyed) return;
             isDestroyed = true;
@@ -190,8 +207,8 @@ public class PvaClientGet implements ChannelGetRequester
             if(connectState!=GetConnectState.connectActive) {
                 String message = "channel "
                         + channel.getChannelName() 
-                        + " pvaClientGet illegal connect state ";
-                return statusCreate.createStatus(StatusType.ERROR, message,null);
+                        + " pvaClientGet::waitConnect illegal connect state ";
+                throw new RuntimeException(message);
             }
             try {
                 waitForConnect.await();
@@ -199,7 +216,7 @@ public class PvaClientGet implements ChannelGetRequester
                 String message = "channel "
                         + channel.getChannelName() 
                         + " InterruptedException " + e.getMessage();
-                return statusCreate.createStatus(StatusType.ERROR, message,e.fillInStackTrace());
+                throw new RuntimeException(message);
             }
             if(!channelGetConnectStatus.isOK()) connectState = GetConnectState.connectIdle;
             return channelGetConnectStatus;
@@ -282,7 +299,7 @@ public class PvaClientGet implements ChannelGetRequester
      */
     public PvaClientGetData getData()
     {
-        checkConnected();
+        checkGetState();
         return pvaClientData;
     }
 

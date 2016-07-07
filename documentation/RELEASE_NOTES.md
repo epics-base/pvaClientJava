@@ -1,8 +1,9 @@
-Release/4.1
+EPICS V4 release 4.6
 ===========
 
-This is for EPICS V4 release 4.5
 
+EPICS V4 release 4.5
+==========================
 pvaClient is a synchronous API for pvAccess.
 
 pvaClientJava is the successor to easyPVAJava.

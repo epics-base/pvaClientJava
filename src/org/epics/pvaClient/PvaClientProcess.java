@@ -40,6 +40,9 @@ public class PvaClientProcess implements ChannelProcessRequester{
         this.pvaClient = pvaClient;
         this.channel = channel;
         this.pvRequest = pvRequest;
+        if(PvaClient.getDebug()) {
+            System.out.println("PvaClientProcess::PvaClientProcess()");
+        }
     }
 
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
@@ -119,6 +122,7 @@ public class PvaClientProcess implements ChannelProcessRequester{
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientProcess::destroy");
         synchronized (this) {
             if(isDestroyed) return;
             isDestroyed = true;
@@ -157,7 +161,7 @@ public class PvaClientProcess implements ChannelProcessRequester{
         channelProcess = channel.createChannelProcess(this, pvRequest);
     }
     /**
-     * Wait until connection completes or for timeout.
+     * Wait until connection completes.
      * @return status of connection request.
      */
     public Status waitConnect()

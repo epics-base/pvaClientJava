@@ -33,8 +33,8 @@ public class PvaClientNTMultiGet
     private final PVStructure pvRequest;
     private PvaClientNTMultiData pvaClientNTMultiData;
     private PvaClientGet[] pvaClientGet;
-    private boolean isConnected;
-    private boolean isDestroyed;
+    private boolean isConnected = false;
+    private boolean isDestroyed = false;
 
     /**
      * Factory method that creates a PvaClientNTMultiGet.
@@ -55,6 +55,7 @@ public class PvaClientNTMultiGet
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientNTMultiGet::destroy()");
         lock.lock();
         try {
             if(isDestroyed) return;
@@ -144,7 +145,7 @@ public class PvaClientNTMultiGet
             PvaClientChannel[] pvaClientChannelArray,
             PVStructure pvRequest)
     {
-
+        if(PvaClient.getDebug()) System.out.println("PvaClientNTMultiGet::PvaClientNTMultiGet()");
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
         this.pvRequest = pvRequest;

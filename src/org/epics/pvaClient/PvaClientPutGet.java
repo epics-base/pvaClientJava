@@ -51,6 +51,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
         this.pvaClient = pvaClient;
         this.channel = channel;
         this.pvRequest = pvRequest;
+        if(PvaClient.getDebug()) System.out.println("PvaClientPutGet::PvaClientPutGet");
     }
 
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
@@ -64,7 +65,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
     private final Condition waitForConnect = lock.newCondition();
     private final Condition waitForPutGet = lock.newCondition();
     private PvaClientGetData pvaClientGetData = null;
-    private PvaClientPutData pvaClientPutData = null;
+    private PvaClientPutData pvaClientPutGetData = null;
 
     private volatile boolean isDestroyed = false;
     private volatile Status channelPutGetConnectStatus = statusCreate.getStatusOK();
@@ -78,7 +79,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
 
     void checkPutGetState()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGetGet was destroyed");
         if(connectState==PutGetConnectState.connectIdle)
         {
             connect();
@@ -98,7 +99,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     @Override
     public void message(String message, MessageType messageType) {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGetGet was destroyed");
         pvaClient.message(message, messageType);
     }
     /* (non-Javadoc)
@@ -111,15 +112,19 @@ public class PvaClientPutGet implements ChannelPutGetRequester
             Structure putStructure,
             Structure getStructure)
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");       
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");       
         lock.lock();
         try {
+            if(PvaClient.getDebug()) System.out.println(
+                    "PvaClientPutGet::channelPutGetConnect"
+                    + " channelName " + channel.getChannelName()
+                    + " status " + status);
             channelPutGetConnectStatus = status;
             connectState = PutGetConnectState.connected;
             this.channelPutGet = channelPutGet;
             if(status.isOK()) {
-                pvaClientPutData = PvaClientPutData.create(putStructure);
-                pvaClientPutData.setMessagePrefix(channel.getChannelName());
+                pvaClientPutGetData = PvaClientPutData.create(putStructure);
+                pvaClientPutGetData.setMessagePrefix(channel.getChannelName());
                 pvaClientGetData = PvaClientGetData.create(getStructure);
                 pvaClientGetData.setMessagePrefix(channel.getChannelName());
             }
@@ -139,9 +144,13 @@ public class PvaClientPutGet implements ChannelPutGetRequester
             PVStructure getPVStructure,
             BitSet getBitSet)
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         lock.lock();
         try {
+            if(PvaClient.getDebug()) System.out.println(
+                    "PvaClientPutGet::channelPutGetDone"
+                    + " channelName " + channel.getChannelName()
+                    + " status " + status);
             channelPutGetStatus = status;
             putGetState = PutGetState.putGetComplete;
             if(status.isOK()) {
@@ -163,15 +172,19 @@ public class PvaClientPutGet implements ChannelPutGetRequester
             PVStructure putPVStructure,
             BitSet putBitSet)
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         lock.lock();
         try {
+            if(PvaClient.getDebug()) System.out.println(
+                    "PvaClientPutGet::channelGetPutDone"
+                    + " channelName " + channel.getChannelName()
+                    + " status " + status);
             channelPutGetStatus = status;
             putGetState = PutGetState.putGetComplete;
             if(status.isOK()) {
-                PVStructure pvs = pvaClientPutData.getPVStructure();
+                PVStructure pvs = pvaClientPutGetData.getPVStructure();
                 convert.copyStructure(putPVStructure,pvs);
-                BitSet bs = pvaClientPutData.getChangedBitSet();
+                BitSet bs = pvaClientPutGetData.getChangedBitSet();
                 bs.clear();
                 bs.or(putBitSet);
             }
@@ -191,9 +204,13 @@ public class PvaClientPutGet implements ChannelPutGetRequester
             PVStructure getPVStructure,
             BitSet getBitSet)
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         lock.lock();
         try {
+            if(PvaClient.getDebug()) System.out.println(
+                    "PvaClientPutGet::channelGetGetDone"
+                    + " channelName " + channel.getChannelName()
+                    + " status " + status);
             channelPutGetStatus = status;
             putGetState = PutGetState.putGetComplete;
             if(status.isOK()) {
@@ -212,8 +229,11 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientPutGet::destroy");
         synchronized (this) {
-            if(isDestroyed) return;
+            if(isDestroyed) {
+                return;
+            }
             isDestroyed = true;
         }
         if(channelPutGet!=null) channelPutGet.destroy();
@@ -225,7 +245,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public void connect()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         issueConnect();
         Status status = waitConnect();
         if(status.isOK()) return;
@@ -240,10 +260,10 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public void issueConnect()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         if(connectState!=PutGetConnectState.connectIdle) {
             String message = "channel " + channel.getChannelName()
-            + "  pvaClientPut already connected";
+            + "  pvaClientPutGet already connected";
             throw new RuntimeException(message);
         }
         connectState = PutGetConnectState.connectActive;
@@ -256,7 +276,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public Status waitConnect()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         lock.lock();
         try {
             if(connectState==PutGetConnectState.connected) {
@@ -290,7 +310,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public void putGet()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         issuePutGet();
         Status status = waitPutGet();
         if(status.isOK()) return;
@@ -304,15 +324,15 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public void issuePutGet()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         if(connectState==PutGetConnectState.connectIdle) connect();
         if(putGetState!=PutGetState.putGetIdle){
             String message = "channel " + channel.getChannelName()
-            + " PvaClientPut::issueGet get or put aleady active ";
+            + " PvaClientPutGet::issuePutGet get or put aleady active ";
             throw new RuntimeException(message);
         }
         putGetState = PutGetState.putGetActive;
-        channelPutGet.putGet(pvaClientPutData.getPVStructure(),pvaClientPutData.getChangedBitSet());
+        channelPutGet.putGet(pvaClientPutGetData.getPVStructure(),pvaClientPutGetData.getChangedBitSet());
     }
     /**
      * Wait until putGet completes or for timeout.
@@ -320,7 +340,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public Status waitPutGet()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         lock.lock();
         try {
             if(putGetState==PutGetState.putGetComplete) {
@@ -354,7 +374,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public void getGet()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         issueGetGet();
         Status status = waitGetGet();
         if(status.isOK()) return;
@@ -368,7 +388,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public void issueGetGet()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         if(connectState==PutGetConnectState.connectIdle) connect();
         if(putGetState!=PutGetState.putGetIdle){
             String message = "channel " + channel.getChannelName()
@@ -384,7 +404,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public Status waitGetGet()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         lock.lock();
         try {
             if(putGetState==PutGetState.putGetComplete) {
@@ -418,7 +438,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public void getPut()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         issueGetPut();
         Status status = waitGetPut();
         if(status.isOK()) return;
@@ -432,7 +452,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public void issueGetPut()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         if(connectState==PutGetConnectState.connectIdle) connect();
         if(putGetState!=PutGetState.putGetIdle){
             String message = "channel " + channel.getChannelName()
@@ -449,7 +469,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
      */
     public Status waitGetPut()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientPutGet was destroyed");
         lock.lock();
         try {
             if(putGetState==PutGetState.putGetComplete) {
@@ -494,7 +514,7 @@ public class PvaClientPutGet implements ChannelPutGetRequester
     public PvaClientPutData getPutData()
     {
         checkPutGetState();
-        return pvaClientPutData;
+        return pvaClientPutGetData;
     }  
 }
 

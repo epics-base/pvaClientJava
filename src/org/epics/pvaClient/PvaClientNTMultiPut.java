@@ -59,6 +59,7 @@ public class PvaClientNTMultiPut
      */
     public void destroy()
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientNTMultiPut::destroy()");
         lock.lock();
         try {
             if(isDestroyed) return;
@@ -160,6 +161,7 @@ public class PvaClientNTMultiPut
             PvaClientMultiChannel pvaClientMultiChannel,
             PvaClientChannel[] pvaClientChannelArray)
     {
+        if(PvaClient.getDebug()) System.out.println("PvaClientNTMultiPut::PvaClientNTMultiPut()");
         this.pvaClientMultiChannel = pvaClientMultiChannel;
         this.pvaClientChannelArray = pvaClientChannelArray;
         nchannel = pvaClientChannelArray.length;

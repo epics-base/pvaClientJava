@@ -39,7 +39,39 @@ public class PvaClientMultiChannel
     {
         return create(pvaClient,channelNames,"pva",0);
     }
+    
+    /** Create a PvaClientMultiChannel with provider = "pva" and maxNotConnected = 0.
+     * @param pvaClient The interface to pvaClient.
+     * @param channelNames The names of the channels.
+     * @param providerName The name of the provider.
+     * @return The interface to the PvaClientMultiChannel
+     */
+    static public PvaClientMultiChannel create(
+            PvaClient pvaClient,
+            String[] channelNames,
+            String providerName
+            )
+    {
+        return create(pvaClient,channelNames,providerName,0);
+    }
 
+    /** Create a PvaClientMultiChannel.
+     * @param pvaClient The interface to pvaClient.
+     * @param channelNames The names of the channel..
+     * @param providerName The name of the provider.
+     * @param maxNotConnected The maximum number of channels that can be disconnected.
+     * @return The interface to the PvaClientMultiChannel
+     */
+    static public PvaClientMultiChannel create(
+            PvaClient pvaClient,
+            String[] channelNames,
+            String providerName,
+            int maxNotConnected
+            )
+    {
+        return new PvaClientMultiChannel(pvaClient,channelNames,providerName,maxNotConnected);
+    }
+    
     private PvaClientMultiChannel(
             PvaClient pvaClient,
             String[] channelNames,
@@ -58,11 +90,12 @@ public class PvaClientMultiChannel
             pvaClientChannelArray[i] = null;
             isConnected[i] = false;
         }
+        if(PvaClient.getDebug()) System.out.println("PvaClientMultiChannel::PvaClientMultiChannel()");
     }
 
     private void checkConnected()
     {
-        if(numConnected==0) connect(3.0);
+        if(numConnected==0) connect();
     }
 
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
@@ -80,22 +113,7 @@ public class PvaClientMultiChannel
     boolean[] isConnected;
     boolean isDestroyed = false;
 
-    /** Create a PvaClientMultiChannel.
-     * @param pvaClient The interface to pvaClient.
-     * @param channelNames The names of the channel..
-     * @param providerName The name of the provider.
-     * @param maxNotConnected The maximum number of channels that can be disconnected.
-     * @return The interface to the PvaClientMultiChannel
-     */
-    static public PvaClientMultiChannel create(
-            PvaClient pvaClient,
-            String[] channelNames,
-            String providerName,
-            int maxNotConnected
-            )
-    {
-        return new PvaClientMultiChannel(pvaClient,channelNames,providerName,maxNotConnected);
-    }
+    
 
     /** Destroy the pvAccess connection.
      */
