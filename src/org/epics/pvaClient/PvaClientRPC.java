@@ -230,15 +230,20 @@ public class PvaClientRPC implements ChannelRPCRequester{
     {
         checkRPCState();
         channelRPC.request(pvArgument);
+        lock.lock();
         try {
-        waitForDone.wait();
-        } catch(InterruptedException e) {
-            String message = "channel "
-                    + channel.getChannelName() 
-                    + " InterruptedException " + e.getMessage();
-            throw new RuntimeException(message);
-        }
-        return pvResponse;
+            try {
+                waitForDone.await();
+            } catch(InterruptedException e) {
+                String message = "channel "
+                        + channel.getChannelName() 
+                        + " InterruptedException " + e.getMessage();
+                throw new RuntimeException(message);
+            }
+            return pvResponse;
+        } finally {
+            lock.unlock();
+        }  
     }
     
 
@@ -246,7 +251,6 @@ public class PvaClientRPC implements ChannelRPCRequester{
         PVStructure pvArgument,
         PvaClientRPCRequester pvaClientRPCRequester)
     {
-        checkRPCState();
         this.pvaClientRPCRequester = pvaClientRPCRequester;
         channelRPC.request(pvArgument);
        
