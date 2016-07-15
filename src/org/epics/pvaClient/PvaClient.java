@@ -1,12 +1,7 @@
-/*pvaClient.java*/
 /**
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * EPICS pvData is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
- */
-/**
- * @author mrk
- * @date 2015.06
  */
 
 package org.epics.pvaClient;
@@ -25,7 +20,7 @@ import org.epics.pvaccess.client.*;
 /**
  * PvaClient is a synchronous  interface to pvAccess.
  * @author mrk
- *
+ * @since 2015.06
  */
 public class PvaClient implements Requester {
     /**

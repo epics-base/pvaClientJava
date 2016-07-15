@@ -1,5 +1,7 @@
 /**
- * 
+ * Copyright - See the COPYRIGHT that is included with this distribution.
+ * EPICS pvData is distributed subject to a Software License Agreement found
+ * in file LICENSE that is included with this distribution.
  */
 package org.epics.pvaClient;
 
@@ -23,7 +25,8 @@ import org.epics.pvdata.pv.Structure;
 /**
  * This is a synchronous alternative to channelPut.
  * @author mrk
- *
+ * @author mrk
+ * @since 2015.06
  */
 public class PvaClientPut implements ChannelPutRequester {
 
@@ -229,7 +232,7 @@ public class PvaClientPut implements ChannelPutRequester {
     }
 
     /**
-     * wait until the channelPyt connection to the channel is complete.
+     * wait until the channelPut connection to the channel is complete.
      * @return status of connection request.
      */
     public Status waitConnect()

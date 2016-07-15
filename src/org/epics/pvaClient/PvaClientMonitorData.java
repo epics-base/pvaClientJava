@@ -1,5 +1,7 @@
 /**
- * 
+ * Copyright - See the COPYRIGHT that is included with this distribution.
+ * EPICS pvData is distributed subject to a Software License Agreement found
+ * in file LICENSE that is included with this distribution.
  */
 package org.epics.pvaClient;
 
@@ -31,10 +33,14 @@ import org.epics.pvdata.pv.Type;
 /**
  * This is a convenience wrapper for data for a channel monitor.
  * @author mrk
- *
+ * @since 2015.06
  */
 public class PvaClientMonitorData {
-
+    /**
+     * Create an instance of PvaClientMonitorData.
+     * @param structure The introspection interface for the data.
+     * @return The new instance.
+     */
     static PvaClientMonitorData create(Structure structure) {
         return new PvaClientMonitorData(structure);
     }

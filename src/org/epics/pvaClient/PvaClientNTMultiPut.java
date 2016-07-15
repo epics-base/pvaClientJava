@@ -1,12 +1,7 @@
-/* PvaClientNTMultiPut.java */
 /**
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * EPICS pvData is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
- */
-/**
- * @author mrk
- * @date 2015.08
  */
 
 package org.epics.pvaClient;
@@ -25,7 +20,10 @@ import org.epics.pvdata.pv.PVUnion;
 import org.epics.pvdata.pv.Status;
 
 /**
- *  This provides channelPut to multiple channels where the value field of each channel is presented as a union.
+ * Provides channelPut to multiple channels
+ * where the value field of each channel is presented as a union.
+ * @author mrk
+ * @since 2015.06
  */
 public class PvaClientNTMultiPut
 {
