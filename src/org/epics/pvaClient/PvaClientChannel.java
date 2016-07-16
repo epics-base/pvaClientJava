@@ -821,7 +821,8 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public PVStructure rpc(
             PVStructure pvArgument)
     {
-        return rpc(pvArgument,pvArgument);
+        PvaClientRPC rpc = createRPC();
+        return rpc.request(pvArgument);
     }
     /** Create a PvaClientRPC.
      * @return The interface.
