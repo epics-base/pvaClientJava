@@ -26,7 +26,7 @@
 
 <div class="head">
 <h1>EPICS pvaClientJava</h1>
-<h2 class="nocount">Release 4.2.0-SNAPSHOT - 2016-03-21</h2>
+<h2 class="nocount">Release 4.2-DEV - 2016-07-18</h2>
 
 <h2 class="nocount">Abstract</h2>
 
@@ -62,286 +62,54 @@ The data for the channels is presented via normative type NTMultiChannel.
 </div> <!-- head -->
 
 <div id="toc">
-  <h2 class="nocount">Table of Contents</h2>
+<h2 class="nocount" style="page-break-before: always">Table of Contents</h2>
 </div>
+<div id="contents" class="contents">
 
-<!-- Place what you would like in the Table of Contents, inside the contents div -->
-<div id="contents" class="contents">	  
-<hr />
-
-<h2>Introduction</h2>
-<p>PvaClient is a synchronous API for accessing PVData via PVAccess.
-It also provides a number of convenience methods.
-It allows the client to request access without checking for failure,
-but throws an exception if a request fails.
-A client can also check for failues and thus prevent exceptions.</p>
-
-<p>The PvaClient API has the following features:</p>
-<ol>
-  <li>Provides a synchronous API rather than the callback API provided by pvAccess.</li>
-  <li>Makes common requests easy.</li>
-  <li>Provides full access to the pvAccess API for more demanding
-  applications</li>
-  <li>Allows efficient client side programs.</li>
-  <li>Takes care of most object resource management problems.</li>
-</ol>
-<p>Simple examples of using pva:</p>
-<pre>
-// pvaGet
-PvaClient pva = PvaClient.get();
-double value = pva.channel("exampleDouble").get().getData().getDouble();
-
-// pvaPut
-PvaClientChannel channel = pva.channel("exampleDouble");
-PvaClientPut put = channel.put();
-PvaClientPutData putData = put.getData();
-putData.putDouble(3.0); put.put();
-
-// pvaMonitor
-PvaClientMonitor monitor = pva.channel("examplecwDouble").monitor("");
-PvaClientMonitorData pvaData = monitor.getData();
-while(true) {
-    monitor.waitEvent();
-    cout &lt;&lt; "changed\n";
-    pvaData.showChanged(cout);
-    cout &lt;&lt; "overrun\n";
-    pvaData.showOverrun(cout);
-    monitor.releaseEvent();
-}
-
-// pvaProcess
-PvaClientChannel channel = pva.channel("exampleDouble");
-PvaClientProcess process = channel.createProcess();
-process.process();
-</pre>
-<p>A separate project <b>exampleJava</b> has examples for <b>pvDatabaseJava</b>
-and for <b>pvaClientJava</b>.
-See it for pvaClientJava examples.
+<h2>Overview</h2>
+<p>
+pvaClientJava is one of the components of 
+<a href="http://epics-pvdata.sourceforge.net">
+EPICS Version 4
+</a>
+</p>
+<p>This document is only a guide to help locate code and documentation related to pvDatabaseJava
+</p>
+<p>
+It is intended for developers that want to use pvDatabaseJava.
+</p>
+<h2>Developer Guide</h2>
+<p>A guide for developers is available at
+<a
+href="http://epics-pvdata.sourceforge.net/informative/developerGuide/developerGuide.html">
+developerGuide
+</a>
+</p>
+<p>This guide discusses all the components that are part of an <b>EPICS V4</b> release.
+Some understanding of the components and how they are related is necessary in order to
+develop code that uses pvDatabaseJava.
+In particular read everything related to pvaClient.
+</p>
+<p>The developerGuide discusses code in a way that applies to both Java and C++.
+For the descriptions of the Java specific code consult the next section.
 </p>
 
-<p>pvaClient does <b>not</b> provide support for:</p>
-<dl>
-   <dt>ChannelArray</dt>
-     <dd>TBD</dd>
-   <dt>ChannelRPC</dt>
-     <dd>pvAccess itself already provides a synchronous interface.
-       The examples include helloWorldRPC, which is an example of using channelRP.
-     </dd>
-</dl>
-
-<h2>PvaClient</h2>
-<p>An interface to PvaClient is obtained via the call:</p>
-<pre>
-PvaClient pva = PvaClient.get();
-</pre>
-
-<p>PvaClient has methods to create instances of <b>PvaClientChannel</b>.
-The client can specify the provider name or use the default provider.
-The client can manage it's own channels or can let pvaClient cache channels.
-An example of using the cached method is:</p>
-<pre>
-PvaClientChannel pvaChannel = pva.channel("exampleDouble");
-</pre>
-<p>This will attempt to connect to channel exampleDouble.
-Since the client did not specify a timeout an exception wll be thrown if
-the connection request fails.
-The client will block until the connection is made or an exception is thrown.
-If the request succeeds, pva caches the pvaChannel so that if the
-client makes another request for the same channel the cached object is
-returned to the client.
-</p>
-<p>An example of using a non cached method is:</p>
-<pre>
-PvaClientChannel pvaChannel = pva.createChannel("exampleDouble");
-</pre>
-<p>This will create an PvaClientChannel and return it to the client.
-The client must itself connect.
-This is useful if the client wants to connect to multiple channels in parallel.
+<h2>JavaDoc</h2>
+<p>Javadoc documentation is available at
+<a
+href="../target/apidocs/index.html">javaDoc</a>
 </p>
 
-<h2>PvaClientChannel - Wrapper For Single Channel</h2>
-<h3>PvaClientChannel</h3>
-<p>This provides methods for connecting to a channel and for creating instances of
-PvaClientField, PvaClientProcess, ..., PvaClientPutGet.</p>
-<p>Connection must be made before any create  method is called or
-an exception is raised.
-The following is a synchronous connection request:</p>
-<pre>
-pvaChannel.connect(5.0); // BLOCKS AND THROWS IF NO CONNECT
-</pre>
-<p>This blocks until then connection is made or until timout occurs.
-An exception is raised if the connection request fails.
+<h2>exampleJava</h2>
+<p>Example code is available as part of this release.
+<a
+href="http://epics-pvdata.sourceforge.net/docbuild/exampleJava/tip/documentation/exampleJava.html">
+exampleJava
+</a>
 </p>
-<p>The same request can be made without blocking and without exceptions.</p>
-<pre>
-pvaChannel.issueConnect(); // DOES NOT BLOCK
-.....
-Status status =pvaChannel.waitConnect(5.0);  // BLOCKS DOES NOT THROW
-if(!status.isOK()) {
-   // failure do something
-}
-</pre>
-<p>Once the channel is connected other PvaClient objects can be created.
-For example:</p>
-<pre>
-PvaClientGet pvaGet = pvaChannel.get(); // DOES BLOCK
-</pre>
-<p>This is a caching request.
-If the client already has made an identical request the client will receive the
-cached object.
-If a new pvaGet is created than it is connected before it is returned to the client.
+<p>In particular look at exampleClient.
+It has many examples of using pvaClientJava.
 </p>
-<p>The client can also managed it's own objects:</p>
-<pre>
-PvaClientGet pvaGet = pvaChannel.createGet(); // DOES NOT BLOCK
-</pre>
-<p>The client must connect the pvaGet.</p>
-
-<h3>PvaClientGetData</h3>
-<p>This provides the data returned by pvaGet and pvaPutGet.
-It is obtained via:</p>
-<pre>
-PvaClientGetData pvaData = pvaGet.getData();
-</pre>
-<p>It provides methods to get everything returned by channelGet.
-In addition there are methods that make it easier to handle a value
-field that is a scalar or a scalarArray.
-Also for a scalar that is a double or a scalarArray with element type double.
-</p>
-<p>An example is:</p>
-<pre>
-double value = pvaData.getDouble();
-</pre>
-<p>It also keeps a bitSet showing which fields have changed since the last channelGet or channelPutGet.</p>
-
-<h3>PvaClientMonitorData</h3>
-<p>To the client this looks identical to PvaClientGetData except that
-it provides two BitSets: changedBitSet and overrrunBitSet.
-It is used by pvaMonitor.
-</p>
-<h3>PvaClientPutData</h3>
-<p>This is used to provided data for pvaPut and pvaPutGet.
-It has many of the same methods as pvaGetData.
-It does not have a bitSet.
-It also has put methods like:</p>
-<pre>
-void pvaData.putDouble(5.0);
-</pre>
-<h3>PvaClientGet</h3>
-<p>This provides methods to connect to channelGet and to issue get request.
-To connect via a single synchronous call:</p>
-<pre>
-eastGet.connect();  // BLOCKS AND CAN THROW
-</pre>
-<p>This can also be done in two steps:</p>
-<pre>
-pvaGet.issueConnect(); // DOES NOT BLOCK
-...
-Status status = pvaGet.waitConnect(); // BLOCKS AND DOES NOT HROW
-</pre>
-<p>Once connected gets are issued via either:</p>
-<pre>
-void pvaGet.get(); // BLOCKS AND CAN THROW
-</pre>
-or
-<pre>
-pvaGet.issueGet(); // DOES NOT BLOCK
-...
-Status status = pvaGet.waitGet(); // BLOCKS AND DOES NOT THROW
-</pre>
-<h3>PvaClientPut</h3>
-<p>This is similar to pvaGet except that it wraps channelPut instead of channelGet.
-</p>
-<p>Once connected puts are issued via either:</p>
-<pre>
-void pvaPut.put(); // BLOCKS AND CAN THROW
-</pre>
-or
-<pre>
-pvaPut.issuePut(); // DOES NOT BLOCK
-...
-Status status = pvaPut.waitPut(); // BLOCKS AND DOES NOT THROW
-</pre>
-<h3>PvaClientMonitor</h3>
-<p>Connecting is similar to pvaGet and pvaPut.
-The other methods are:</p>
-<dl>
-   <dt>start</dt>
-     <dd>Starts monitoring</dd>
-   <dt>stop</dt>
-     <dd>Stops monitoring</dd>
-   <dt>poll</dt>
-     <dd>polls for a monitorEvent.
-      The data is avalable via pvaMonitorData.
-     </dd>
-   <dt>releaseEvent</dt>
-      <dd>Release the data from the last poll.
-       Note that this must be called before another poll is requested.
-       </dd>
-   <dt>waitEvent</dt>
-      <dd>Block until a monitorEvent is available.
-      If true is returned a poll has already been issued.
-      </dd>
-   <dt>setRequester</dt>
-      <dd>A client callback is registered to receive notice of monitorEvents.</dd>
-</dl>
-<h3>PvaClientProcess</h3>
-<p>Connecting is similar to pvaGet.
-It has methods:</p>
-<dl>
-   <dt>process</dt>
-     <dd>call issueProcess and waitProcess.</dd>
-   <dt>issueProcess</dt>
-      <dd>call channelProcess.process() and return immediately.
-      </dd>
-   <dt>waitProcess</dt>
-      <dd>Wait for process to complete.</dd>
-</dl>
-<h3>PvaClientPutGet</h3>
-<p>Connecting is similar to pvaGet.
-It has methods:</p>
-<dl>
-    <dt>putGet</dt>
-       <dd>calls issuePutGet and waitPutGet.
-        throws an exception if not successfull.
-       </dd>
-    <dt>issuePutGet</dt>
-        <dd>
-         Calls channel.putGet() and returns.
-        </dd>
-    <dt>waitPutGet</dt>
-        <dd>
-          Waits until putGet completes and returns status.
-        </dd>
-    <dt>getGet,issueGetGet, and waitGetGet</dt>
-        <dd>Gets the data for the get part of channelPutGet.</dd>
-    <dt>getPut,issueGetPut,and waitGetPut</dt>
-        <dd>Gets the data for the put part of channelPutGet.</dd>
-    <dt>getPutData</dt>
-        <dd>
-         Returns the PvaClientData for the put part of channelPutGet.
-        </dd>
-    <dt>getGetData</dt>
-        <dd>
-         Returns the PvaClientData for the get part of channelPutGet.
-        </dd>
-</dl>
-<p>Look at javaDoc for details.</p>
-
-<h2>PvaClientMultiChannel - Wrapper For Multiple Channels</h2>
-<h3>PvaClientMultiChannel</h3>
-<p>This provides methods for connecting to multiple channels.
-</p>
-<h3>PvaClientMultiGetDouble</h3>
-<p>This provides support for channelGet to multiple channels.
-</p>
-<h3>PvaClientMultiPutDouble</h3>
-<p>This provides support for channelPut to multiple channels.
-</p>
-<h3>PvaClientMultiMonitorDouble</h3>
-<p>This provides support for monitoring changes to multiple channels.
-</p>
-
 
 </div> <!-- class="contents" -->
 </body>
