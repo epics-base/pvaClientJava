@@ -1,13 +1,9 @@
-/* PvaClientMultiPutDouble.java */
 /**
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * EPICS pvData is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
  */
-/**
- * @author mrk
- * @date 2015.07
- */
+
 package org.epics.pvaClient;
 
 import org.epics.pvdata.factory.ConvertFactory;
@@ -18,8 +14,9 @@ import org.epics.pvdata.pv.Status;
 
 
 /**
+ * Provides channelPut to multiple channels where each channel has a numeric scalar value field.
  * @author mrk
- * This provides channelPut to multiple channels where each channel has a numeric scalar value field.
+ * @since 2015.06
  */
 public class PvaClientMultiPutDouble
 {

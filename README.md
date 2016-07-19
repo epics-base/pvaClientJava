@@ -15,17 +15,13 @@ Building
 Examples
 ------------
 
-The examples require the database in pvaClientTestCPP.
-For example:
+Examples are available in exampleJava.
 
-    mrk> pwd
-    /home/epicsv4/pvaClientTestCPP/database/iocBoot/exampleDatabase
-    mrk> ../../bin/linux-x86_64/exampleDatabase st.cmd 
 
 Status
 ------
 
-* The API is for EPICS Version 4 release 4.5.0
+* The API is for EPICS Version 4 release 4.6.0
 * pvaClient should be ready but see below for remaining work.
 * pvaClientMultiChannel is ready but see below for remaining work.
 
@@ -33,12 +29,12 @@ Status
 pvaClient
 ---------------
 
-Channel::getField and channelArray are not supported for release 4.5.
+Channel::getField and channelArray are not supported for release 4.6.
 
 pvaClientMultiChannel
 ---------------
 
-For release 4.5 support is available for multiDouble and NTMultiChannel.
+For release 4.6 support is available for multiDouble and NTMultiChannel.
 In the future additional support should be provided that at least includes NTScalarMultiChannel.
 
 Testing with some channels not connected has not been done.

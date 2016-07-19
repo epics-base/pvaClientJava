@@ -1,5 +1,7 @@
 /**
- * 
+ * Copyright - See the COPYRIGHT that is included with this distribution.
+ * EPICS pvData is distributed subject to a Software License Agreement found
+ * in file LICENSE that is included with this distribution.
  */
 package org.epics.pvaClient;
 
@@ -26,9 +28,14 @@ import org.epics.pvdata.pv.Type;
 /**
  * This is a convenience wrapper for data for a channelPut or the put part of a channelPutGet.
  * @author mrk
- *
+ * @since 2015.06
  */
 public class PvaClientPutData {
+    /**
+     * Create an instance of PvaClientPutData.
+     * @param structure The introspection interface for the data.
+     * @return The new instance.
+     */
     static PvaClientPutData create(Structure structure) {
         return new PvaClientPutData(structure);
     }

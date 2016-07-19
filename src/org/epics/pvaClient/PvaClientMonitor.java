@@ -1,6 +1,9 @@
 /**
- * 
+ * Copyright - See the COPYRIGHT that is included with this distribution.
+ * EPICS pvData is distributed subject to a Software License Agreement found
+ * in file LICENSE that is included with this distribution.
  */
+
 package org.epics.pvaClient;
 
 import java.util.concurrent.locks.Condition;
@@ -22,12 +25,15 @@ import org.epics.pvdata.pv.Structure;
 /**
  * This is a synchronous alternative to channel monitor.
  * @author mrk
- *
+ * @since 2015.06
  */
 public class PvaClientMonitor implements MonitorRequester{
     /**
      * Create a new PvaClientMonitor
-     * @return The interface.
+     * @param pvaClient The single instance of pvaClient.
+     * @param channel The channel.
+     * @param pvRequest The pvRequest
+     * @return The new instance.
      */
     static PvaClientMonitor create(
             PvaClient pvaClient,

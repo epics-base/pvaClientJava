@@ -1,5 +1,7 @@
 /**
- * 
+ * Copyright - See the COPYRIGHT that is included with this distribution.
+ * EPICS pvData is distributed subject to a Software License Agreement found
+ * in file LICENSE that is included with this distribution.
  */
 package org.epics.pvaClient;
 
@@ -20,10 +22,17 @@ import org.epics.pvdata.pv.Structure;
 /**
  * This is a synchronous alternative to ChannelGet
  * @author mrk
- *
+ * @since 2015.06
  */
 public class PvaClientGet implements ChannelGetRequester
 {
+    /**
+     * Create an instance of PvaClientGet.
+     * @param pvaClient The single instance of pvaClient.
+     * @param channel The channel.
+     * @param pvRequest The pvRequest.
+     * @return The new instance.
+     */
     static PvaClientGet create(
             PvaClient pvaClient,
             Channel channel,

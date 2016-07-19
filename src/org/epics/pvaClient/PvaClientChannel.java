@@ -5,10 +5,6 @@
  * EPICS pvData is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
  */
-/**
- * @author mrk
- * @date 2015.06
- */
 package org.epics.pvaClient;
 
 import java.util.Iterator;
@@ -35,10 +31,18 @@ import org.epics.pvdata.pv.StatusCreate;
 /**
  * An synchronous alternative to directly calling the Channel methods of pvAccess.
  * @author mrk
+ * @since 2015.06
  *
  */
 public class PvaClientChannel implements ChannelRequester,Requester{
     
+    /**
+     * Create an instance of PvaClientChannel.
+     * @param pvaClient The single instance of pvaClient.
+     * @param channelName The channel name.
+     * @param providerName The provider name.
+     * @return The new instance.
+     */
     static PvaClientChannel create(
             PvaClient pvaClient,
             String channelName,
@@ -817,7 +821,16 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public PVStructure rpc(
             PVStructure pvArgument)
     {
-        return rpc(pvArgument,pvArgument);
+        PvaClientRPC rpc = createRPC();
+        return rpc.request(pvArgument);
+    }
+    /** Create a PvaClientRPC.
+     * @return The interface.
+     */
+    public PvaClientRPC createRPC()
+    {
+        if(connectState!=ConnectState.connected) connect(5.0);
+        return PvaClientRPC.create(pvaClient,channel);   
     }
     /** Create a PvaClientRPC.
      * @param pvRequest  The pvRequest that must have the same interface

@@ -25,13 +25,28 @@ import org.epics.pvdata.pv.StatusCreate;
 
 /**
  * This is a synchronous alternative to channelRPC.
- *
+ * @author mrk
+ * @since 2016.06
  */
 public class PvaClientRPC implements ChannelRPCRequester{
-
     /**
-     * Create a new PvaClientPut
-     * @return The interface.
+     * Create an instance of PvaClientRPC.
+     * @param pvaClient The single instance of pvaClient.
+     * @param channel The channel.
+     * @return The new instance.
+     */
+    static PvaClientRPC create(
+            PvaClient pvaClient,
+            Channel channel)
+    {
+        return create(pvaClient,channel,null);
+    }
+    /**
+     * Create an instance of PvaClientRPC.
+     * @param pvaClient The single instance of pvaClient.
+     * @param channel The channel.
+     * @param pvRequest The pvRequest.
+     * @return The new instance.
      */
     static PvaClientRPC create(
             PvaClient pvaClient,
@@ -69,15 +84,14 @@ public class PvaClientRPC implements ChannelRPCRequester{
     private volatile boolean isDestroyed = false;
     private volatile ChannelRPC channelRPC = null;
     private PVStructure pvResponse = null;
+    
+    private enum RPCState {rpcIdle,rpcActve,rpcComplete};
+    private volatile RPCState rpcState = RPCState.rpcIdle;
 
     
     void checkRPCState()
     {
         if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
-        if(PvaClient.getDebug()) {
-            System.out.println("PvaClientChannel::waitConnect() "
-                    + "channel " + channel.getChannelName());
-        }
         if(connectState==RPCConnectState.connectIdle) connect();
     }
 
@@ -135,11 +149,17 @@ public class PvaClientRPC implements ChannelRPCRequester{
         if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
         lock.lock();
         try {
+            if(PvaClient.getDebug()) {
+                System.out.println("PvaClientRPC::requestDone() "
+                        + "channel " + channel.getChannelName()
+                        + " status.isOK " + status.isOK());
+            }
             if(pvaClientRPCRequester!=null) {
                 pvaClientRPCRequester.requestDone(status, this, pvResponse);
                 return;
             }
             this.pvResponse = pvResponse;
+            rpcState = RPCState.rpcComplete;
             waitForDone.signal();
         } finally {
             lock.unlock();
@@ -193,7 +213,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
     }
 
     /**
-     * wait until the channelPyt connection to the channel is complete.
+     * wait until the channelRPC connection to the channel is complete.
      * @return status of connection request.
      */
     public Status waitConnect()
@@ -229,17 +249,27 @@ public class PvaClientRPC implements ChannelRPCRequester{
     public PVStructure request(PVStructure pvArgument)
     {
         checkRPCState();
+        if(rpcState!=RPCState.rpcIdle) {
+            String message = "channel "
+                    + channel.getChannelName() 
+                    + " PvaClientRPC::request request aleady active ";
+            throw new RuntimeException(message);
+        }
+        rpcState = RPCState.rpcActve;
         channelRPC.request(pvArgument);
         lock.lock();
         try {
-            try {
-                waitForDone.await();
-            } catch(InterruptedException e) {
-                String message = "channel "
-                        + channel.getChannelName() 
-                        + " InterruptedException " + e.getMessage();
-                throw new RuntimeException(message);
+            if(rpcState!=RPCState.rpcComplete) {
+                try {
+                    waitForDone.await();
+                } catch(InterruptedException e) {
+                    String message = "channel "
+                            + channel.getChannelName() 
+                            + " InterruptedException " + e.getMessage();
+                    throw new RuntimeException(message);
+                }
             }
+            rpcState = RPCState.rpcIdle;
             return pvResponse;
         } finally {
             lock.unlock();

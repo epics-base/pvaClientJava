@@ -1,13 +1,9 @@
-/* PvaClientMultiChannel.java */
 /**
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * EPICS pvData is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
  */
-/**
- * @author mrk
- * @date 2015.07
- */
+
 package org.epics.pvaClient;
 
 import java.util.concurrent.locks.ReentrantLock;
@@ -24,6 +20,7 @@ import org.epics.pvdata.pv.StatusCreate;
  * Provides access to multiple channels.
  *
  * @author mrk
+ * @since 2015.07
  */
 public class PvaClientMultiChannel
 {
