@@ -64,7 +64,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
         this.pvaClient = pvaClient;
         this.channel = channel;
         this.pvRequest = pvRequest;
-        if(PvaClient.getDebug()) System.out.println("PvaClientPut::PvaClientPut");
+        if(PvaClient.getDebug()) System.out.println("PvaClientRPC::PvaClientRPC");
     }
 
     private static final StatusCreate statusCreate = StatusFactory.getStatusCreate();
@@ -87,11 +87,12 @@ public class PvaClientRPC implements ChannelRPCRequester{
     
     private enum RPCState {rpcIdle,rpcActve,rpcComplete};
     private volatile RPCState rpcState = RPCState.rpcIdle;
+    private double responseTimeout = 0.0;
 
     
     void checkRPCState()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientRPC was destroyed");
         if(connectState==RPCConnectState.connectIdle) connect();
     }
 
@@ -107,18 +108,18 @@ public class PvaClientRPC implements ChannelRPCRequester{
      */
     @Override
     public void message(String message, MessageType messageType) {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientRPC was destroyed");
         pvaClient.message(message, messageType);
     }
     /* (non-Javadoc)
-     * @see org.epics.pvaccess.client.ChannelPutRequester#channelPutConnect(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelPut, org.epics.pvdata.pv.Structure)
+     * @see org.epics.pvaccess.client.ChannelRPCRequester#channelRPCConnect(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelRPC, org.epics.pvdata.pv.Structure)
      */
     @Override
     public void channelRPCConnect(
             Status status,
             ChannelRPC channelRPC)
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");       
+        if(isDestroyed) throw new RuntimeException("pvaClientRPC was destroyed");       
         lock.lock();
         try {
             if(PvaClient.getDebug()) {
@@ -138,7 +139,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
     }
 
     /* (non-Javadoc)
-     * @see org.epics.pvaccess.client.ChannelPutRequester#getDone(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelPut, org.epics.pvdata.pv.PVStructure, org.epics.pvdata.misc.BitSet)
+     * @see org.epics.pvaccess.client.ChannelRPCRequester#getDone(org.epics.pvdata.pv.Status, org.epics.pvaccess.client.ChannelRPC, org.epics.pvdata.pv.PVStructure, org.epics.pvdata.misc.BitSet)
      */
     @Override
     public void requestDone(
@@ -146,7 +147,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
             ChannelRPC channelRPC,
             PVStructure pvResponse)
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientRPC was destroyed");
         lock.lock();
         try {
             if(PvaClient.getDebug()) {
@@ -156,7 +157,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
             }
             if(pvaClientRPCRequester!=null) {
                 pvaClientRPCRequester.requestDone(status, this, pvResponse);
-                return;
+                if(responseTimeout==0.0) return;
             }
             this.pvResponse = pvResponse;
             rpcState = RPCState.rpcComplete;
@@ -171,7 +172,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
      */
     public void destroy()
     {
-        if(PvaClient.getDebug()) System.out.println("PvaClientPut::destroy");
+        if(PvaClient.getDebug()) System.out.println("PvaClientRPC::destroy");
         synchronized (this) {
             if(isDestroyed) return;
             isDestroyed = true;
@@ -180,12 +181,20 @@ public class PvaClientRPC implements ChannelRPCRequester{
     }
 
     /**
+     * Set a timeout for a request.
+     * @param timeout The time in seconds to wait for a request to complete.
+     */
+    public void setResponseTimeout(double timeout) 
+    {
+        this.responseTimeout = timeout;
+    }
+    /**
      * call issueConnect and then waitConnect.
      * @throws RuntimeException if create fails.
      */
     public void connect()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientRPC was destroyed");
         issueConnect();
         Status status = waitConnect();
         if(status.isOK()) return;
@@ -197,12 +206,12 @@ public class PvaClientRPC implements ChannelRPCRequester{
     }
 
     /**
-     * create the channelPut connection to the channel.
+     * create the channelRPC connection to the channel.
      * This can only be called once.
      */
     public void issueConnect()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientRPC was destroyed");
         if(connectState!=RPCConnectState.connectIdle) {
             String message = "channel " + channel.getChannelName()
             + "  pvaClientRPC already connected";
@@ -218,7 +227,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
      */
     public Status waitConnect()
     {
-        if(isDestroyed) throw new RuntimeException("pvaClientPut was destroyed");
+        if(isDestroyed) throw new RuntimeException("pvaClientRPC was destroyed");
         lock.lock();
         try {
             if(connectState==RPCConnectState.connected) {
@@ -246,6 +255,11 @@ public class PvaClientRPC implements ChannelRPCRequester{
         }
     }
 
+    /**
+     * Issue a request.
+     * @param pvArgument The argument for the request.
+     * @return
+     */
     public PVStructure request(PVStructure pvArgument)
     {
         checkRPCState();
@@ -261,12 +275,27 @@ public class PvaClientRPC implements ChannelRPCRequester{
         try {
             if(rpcState!=RPCState.rpcComplete) {
                 try {
-                    waitForDone.await();
+                    if(responseTimeout>0.0) {
+                        long nano = (long)(responseTimeout*1e9);
+                        long ret = waitForDone.awaitNanos(nano);
+                        if(ret<=0) {
+                            String message = "channel "
+                                    + channel.getChannelName() + " request timeout";
+                            throw new RuntimeException(message);
+                        }
+                    } else {
+                        waitForDone.await();
+                    }
                 } catch(InterruptedException e) {
                     String message = "channel "
                             + channel.getChannelName() 
                             + " InterruptedException " + e.getMessage();
-                    throw new RuntimeException(message);
+                    if(pvaClientRPCRequester!=null) {
+                        Status status = statusCreate.createStatus(StatusType.ERROR, message,null);
+                        pvaClientRPCRequester.requestDone(status,this,null);
+                    } else {
+                        throw new RuntimeException(message);
+                    }
                 }
             }
             rpcState = RPCState.rpcIdle;
@@ -277,12 +306,20 @@ public class PvaClientRPC implements ChannelRPCRequester{
     }
     
 
+    /**
+     * Issue a request.
+     * @param pvArgument The argument for the request.
+     * @param pvaClientRPCRequester The client requester to call when the request completes.
+     */
     public void request(
         PVStructure pvArgument,
         PvaClientRPCRequester pvaClientRPCRequester)
     {
         this.pvaClientRPCRequester = pvaClientRPCRequester;
-        channelRPC.request(pvArgument);
-       
+        if(responseTimeout==0.0) {
+            channelRPC.request(pvArgument);
+            return;
+        }
+        request(pvArgument);
     }
 }

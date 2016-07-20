@@ -315,6 +315,7 @@ public class PvaClientMonitor implements MonitorRequester{
                     waitForEvent.await();
                 } else {
                     long nano = (long)(secondsToWait*1e9);
+                    // No special action if timeout occurs.
                     waitForEvent.awaitNanos(nano);
                 }
             }
