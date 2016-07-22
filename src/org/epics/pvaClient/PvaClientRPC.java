@@ -85,7 +85,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
     private volatile ChannelRPC channelRPC = null;
     private PVStructure pvResponse = null;
     
-    private enum RPCState {rpcIdle,rpcActve,rpcComplete};
+    private enum RPCState {rpcIdle,rpcActive,rpcComplete};
     private volatile RPCState rpcState = RPCState.rpcIdle;
     private double responseTimeout = 0.0;
 
@@ -155,15 +155,24 @@ public class PvaClientRPC implements ChannelRPCRequester{
                         + "channel " + channel.getChannelName()
                         + " status.isOK " + status.isOK());
             }
-            if(pvaClientRPCRequester!=null) {
-                pvaClientRPCRequester.requestDone(status, this, pvResponse);
-                if(responseTimeout==0.0) return;
+            if(rpcState!=RPCState.rpcActive) {
+                String message = "channel " 
+                        + channel.getChannelName()
+                        + " PvaClientRPC::requestDone but not active "; 
+                   throw new RuntimeException(message);
             }
-            this.pvResponse = pvResponse;
-            rpcState = RPCState.rpcComplete;
-            waitForDone.signal();
+            if(pvaClientRPCRequester!=null && responseTimeout<=0.0) {
+                rpcState = RPCState.rpcIdle;
+            } else {
+                rpcState = RPCState.rpcComplete;
+                if(pvaClientRPCRequester==null) this.pvResponse = pvResponse;
+                waitForDone.signal();
+            }
         } finally {
             lock.unlock();
+        }
+        if(pvaClientRPCRequester!=null) {
+            pvaClientRPCRequester.requestDone(status, this, pvResponse);
         }
     }
 
@@ -179,14 +188,21 @@ public class PvaClientRPC implements ChannelRPCRequester{
         }
         if(channelRPC!=null) channelRPC.destroy();
     }
-
     /**
      * Set a timeout for a request.
-     * @param timeout The time in seconds to wait for a request to complete.
+     * @param responseTimeout The time in seconds to wait for a request to complete.
      */
-    public void setResponseTimeout(double timeout) 
+    public void setResponseTimeout(double responseTimeout) 
     {
-        this.responseTimeout = timeout;
+        this.responseTimeout = responseTimeout;
+    }
+    /**
+     * Get the responseTimeout.
+     * @return The value.
+     */
+    public double getResponseTimeout()
+    {
+        return responseTimeout;
     }
     /**
      * call issueConnect and then waitConnect.
@@ -258,7 +274,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
     /**
      * Issue a request.
      * @param pvArgument The argument for the request.
-     * @return
+     * @return The result.
      */
     public PVStructure request(PVStructure pvArgument)
     {
@@ -269,7 +285,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
                     + " PvaClientRPC::request request aleady active ";
             throw new RuntimeException(message);
         }
-        rpcState = RPCState.rpcActve;
+        rpcState = RPCState.rpcActive;
         channelRPC.request(pvArgument);
         lock.lock();
         try {
@@ -308,6 +324,8 @@ public class PvaClientRPC implements ChannelRPCRequester{
 
     /**
      * Issue a request.
+     * Note that if responseTimeout is ( lt 0.0, ge 0.0) then this (will, will not) block
+     * until response completes or timeout.
      * @param pvArgument The argument for the request.
      * @param pvaClientRPCRequester The client requester to call when the request completes.
      */
@@ -316,7 +334,20 @@ public class PvaClientRPC implements ChannelRPCRequester{
         PvaClientRPCRequester pvaClientRPCRequester)
     {
         this.pvaClientRPCRequester = pvaClientRPCRequester;
-        if(responseTimeout==0.0) {
+        checkRPCState();
+        if(responseTimeout<=0.0) {
+            lock.lock();
+            try {
+            if(rpcState!=RPCState.rpcIdle) {
+                String message = "channel "
+                        + channel.getChannelName() 
+                        + " PvaClientRPC::request request aleady active ";
+                throw new RuntimeException(message);
+            }
+            rpcState = RPCState.rpcActive;
+            } finally {
+                lock.unlock();
+            }  
             channelRPC.request(pvArgument);
             return;
         }
