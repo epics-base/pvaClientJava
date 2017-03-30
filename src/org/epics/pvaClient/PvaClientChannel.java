@@ -290,6 +290,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
             PvaClientChannelStateChangeRequester stateChangeRequester)
     {
         this.stateChangeRequester = stateChangeRequester;
+        stateChangeRequester.channelStateChange(this,channel.isConnected());
     }
     /**
      * Clear user callback for change of state.

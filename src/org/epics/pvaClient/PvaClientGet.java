@@ -258,7 +258,7 @@ public class PvaClientGet implements ChannelGetRequester
     {
         if(isDestroyed) throw new RuntimeException("pvaClientGet was destroyed");
         if(connectState==GetConnectState.connectIdle) connect();
-        if(getState!=GetState.getIdle) {
+        if(getState==GetState.getActive) {
             String message = "channel "
                     + channel.getChannelName() 
                     +  " PvaClientGet::issueGet get aleady active ";
@@ -278,7 +278,6 @@ public class PvaClientGet implements ChannelGetRequester
         lock.lock();
         try {
             if(getState==GetState.getComplete) {
-                getState = GetState.getIdle;
                 return channelGetStatus;
             }
             if(getState!=GetState.getActive){
@@ -295,7 +294,7 @@ public class PvaClientGet implements ChannelGetRequester
                         + " InterruptedException " + e.getMessage();
                 throw new RuntimeException(message);
             }
-            getState = GetState.getIdle;
+            getState = GetState.getComplete;
             return channelGetStatus;
         } finally {
             lock.unlock();
