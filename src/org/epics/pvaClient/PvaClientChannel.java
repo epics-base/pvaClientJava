@@ -290,7 +290,9 @@ public class PvaClientChannel implements ChannelRequester,Requester{
             PvaClientChannelStateChangeRequester stateChangeRequester)
     {
         this.stateChangeRequester = stateChangeRequester;
-        stateChangeRequester.channelStateChange(this,channel.isConnected());
+        boolean isConnected = false;
+        if(channel!=null) isConnected = channel.isConnected();
+        stateChangeRequester.channelStateChange(this,isConnected);
     }
     /**
      * Clear user callback for change of state.
@@ -386,6 +388,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
                     + "channel " + getChannelName());
         }
         if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
+        if(channel==null) throw new RuntimeException("pvaClientChannel::issueConnect was never called");
         if(channel.isConnected()) return statusCreate.getStatusOK();
         lock.lock();
         try {
@@ -403,6 +406,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
         } finally {
             lock.unlock();
         }
+        if(channel==null) return statusCreate.createStatus(StatusType.ERROR,"pvaClientChannel::waitConnect channel is null",null);
         if(channel.isConnected()) return statusCreate.getStatusOK();
         return statusCreate.createStatus(StatusType.ERROR,"channel not connected",null);
     }
