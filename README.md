@@ -1,4 +1,5 @@
-pvaClientJava
+pvaClientJava  [![Build Status](https://travis-ci.org/epics-base/pvaClientJava.svg?branch=master)](https://travis-ci.org/epics-base/pvaClientJava)
+
 ============
 
 pvaClient is a synchronous client interface to pvAccess,
