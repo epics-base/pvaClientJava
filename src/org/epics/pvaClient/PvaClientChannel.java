@@ -204,10 +204,6 @@ public class PvaClientChannel implements ChannelRequester,Requester{
                             + " isConnected " + (connectionState==ConnectionState.CONNECTED ? "true" : "false")
                     );
         }
-        if(stateChangeRequester!=null) {
-            boolean value = (connectionState==ConnectionState.CONNECTED ? true : false);
-            stateChangeRequester.channelStateChange(this, value);
-        }
         boolean waitingForConnect = false;
         if(isDestroyed) return;
         if(connectState==ConnectState.connectActive) waitingForConnect = true;
@@ -218,7 +214,6 @@ public class PvaClientChannel implements ChannelRequester,Requester{
         } else {
             connectState = ConnectState.connected;
         }
-
         if(waitingForConnect) {
             lock.lock();
             try {
@@ -226,6 +221,10 @@ public class PvaClientChannel implements ChannelRequester,Requester{
             }  finally {
                 lock.unlock();
             }
+        }
+        if(stateChangeRequester!=null) {
+            boolean value = (connectionState==ConnectionState.CONNECTED ? true : false);
+            stateChangeRequester.channelStateChange(this, value);
         }
     }
 
