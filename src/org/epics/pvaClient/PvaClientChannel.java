@@ -175,11 +175,16 @@ public class PvaClientChannel implements ChannelRequester,Requester{
                     );
         }
         if(isDestroyed) throw new RuntimeException("pvaClientChannel was destroyed");
-        this.channel = channel;
+        if(connectState==ConnectState.connected) return;
         if(connectState!=ConnectState.connectActive) {
             String message = "PvaClientChannel::channelCreated"
                     + " channel " + getChannelName()
                     + " why was this called when connectState!=ConnectState.connectActive";
+            throw new RuntimeException(message);
+        }
+        if(!status.isOK()) {
+            String message = "PvaClientChannel::channelCreated"
+                    + " status " + status.getMessage() + " why?";
             throw new RuntimeException(message);
         }
         if(channel.isConnected()) {
@@ -465,7 +470,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public PvaClientProcess createProcess(PVStructure pvRequest)
     {
         if(connectState!=ConnectState.connected) connect(5.0);
-        return PvaClientProcess.create(pvaClient,channel,pvRequest);
+        return PvaClientProcess.create(pvaClient,this,pvRequest);
     }
 
     /**
@@ -489,10 +494,12 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public PvaClientGet get(String request)
     {
         PvaClientGet pvaClientGet = pvaClientGetCache.getGet(request);
-        if(pvaClientGet!=null) return pvaClientGet;
-        pvaClientGet = createGet(request);
-        pvaClientGet.connect();
-        pvaClientGetCache.addGet(request, pvaClientGet);
+        if(pvaClientGet==null) {
+            pvaClientGet = createGet(request);
+            pvaClientGet.connect();
+            pvaClientGetCache.addGet(request,pvaClientGet);
+        }
+        pvaClientGet.get();
         return pvaClientGet;
     }
 
@@ -530,7 +537,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public PvaClientGet createGet(PVStructure pvRequest)
     {
         if(connectState!=ConnectState.connected) connect(5.0);
-        return PvaClientGet.create(pvaClient,channel,pvRequest);
+        return PvaClientGet.create(pvaClient,this,pvRequest);
     }
 
     /**
@@ -599,7 +606,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public PvaClientPut createPut(PVStructure pvRequest)
     {
         if(connectState!=ConnectState.connected) connect(5.0);
-        return PvaClientPut.create(pvaClient,channel,pvRequest);
+        return PvaClientPut.create(pvaClient,this,pvRequest);
     }
 
     /**
@@ -638,7 +645,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public PvaClientPutGet createPutGet(PVStructure pvRequest)
     {
         if(connectState!=ConnectState.connected) connect(5.0);
-        return PvaClientPutGet.create(pvaClient,channel,pvRequest);
+        return PvaClientPutGet.create(pvaClient,this,pvRequest);
     }
 
     /**
@@ -715,7 +722,6 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     {
         return monitor("field(value,alarm,timeStamp)",pvaClientMonitorRequester);
     }
-
     /**
      * Create and connect to a new PvaClientMonitor.
      * Then call it's start method.
@@ -729,41 +735,9 @@ public class PvaClientChannel implements ChannelRequester,Requester{
             String request,
             PvaClientMonitorRequester pvaClientMonitorRequester)
     {
-        return monitor(request,pvaClientMonitorRequester,null);
-    }
-    /**
-     * Call the next method with request =  "value,alarm,timeStamp" 
-     * @param pvaClientMonitorRequester The client callback.
-     * @param pvaClientListenerRequester The client callback.
-     * @return The interface.
-     * @throws RuntimeException if create fails.
-     */
-    public PvaClientMonitor monitor(
-            PvaClientMonitorRequester pvaClientMonitorRequester,
-            PvaClientUnlistenRequester pvaClientListenerRequester)
-    {
-        return monitor("field(value,alarm,timeStamp)",pvaClientMonitorRequester,pvaClientListenerRequester);
-    }
-
-    /**
-     * Create and connect to a new PvaClientMonitor.
-     * Then call it's start method.
-     * If connection can not be made an exception is thrown.
-     * @param request The request as described in package org.epics.pvdata.copy
-     * @param pvaClientMonitorRequester The client callback.
-     *  @param pvaClientListenerRequester The client callback.
-     * @return The interface.
-     * @throws RuntimeException if create fails.
-     */
-    public PvaClientMonitor monitor(
-            String request,
-            PvaClientMonitorRequester pvaClientMonitorRequester,
-            PvaClientUnlistenRequester pvaClientListenerRequester)
-    {
         PvaClientMonitor clientMonitor = createMonitor(request);
         clientMonitor.connect();
         clientMonitor.setRequester(pvaClientMonitorRequester);
-        clientMonitor.setUnlistenRequester(pvaClientListenerRequester);
         clientMonitor.start();
         return clientMonitor;
     }
@@ -804,7 +778,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public PvaClientMonitor createMonitor(PVStructure pvRequest)
     {
         if(connectState!=ConnectState.connected) connect(5.0);
-        return PvaClientMonitor.create(pvaClient, channel, pvRequest);
+        return PvaClientMonitor.create(pvaClient, this, pvRequest);
     }
     /** Issue a channelRPC request
      * @param pvRequest  The pvRequest that is passed to createRPC.

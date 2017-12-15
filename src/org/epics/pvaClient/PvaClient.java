@@ -12,10 +12,10 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import org.epics.pvaccess.client.Channel;
+import org.epics.pvaccess.client.ChannelProviderRegistry;
 import org.epics.pvaccess.client.ChannelProviderRegistryFactory;
 import org.epics.pvdata.pv.MessageType;
 import org.epics.pvdata.pv.Requester;
-import org.epics.pvaccess.client.*;
 
 /**
  * PvaClient is a synchronous  interface to pvAccess.

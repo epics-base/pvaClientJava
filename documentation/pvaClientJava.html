@@ -26,7 +26,7 @@
 
 <div class="head">
 <h1>EPICS pvaClientJava</h1>
-<h2 class="nocount">Release 4.2-DEV - 2016-07-18</h2>
+<h2 class="nocount">Release 7.1 - 2017-12-15</h2>
 
 <h2 class="nocount">Abstract</h2>
 
@@ -44,6 +44,10 @@ pvaClient provides an interface that does not require callbacks even for monitor
 pvaClientChannel provides many "convenience" methods to directly get and put 
 scalar and scalarArray data types.
 Additional methods provide access to the full features of pvAccess.
+</p>
+<p>pvaClient also provides a set of callback interfaces that are easier to use than pvAccess itself.
+These are designed for use by tools like display managers, archivers, etc that need to acquire
+data via the <b>pva</b> or <b>ca</b> channel providers implemented by pvAccess.
 </p>
 <p>
 pvaClientMultiChannel provides access to data from multiple channels.
@@ -73,10 +77,10 @@ pvaClientJava is one of the components of
 EPICS Version 4
 </a>
 </p>
-<p>This document is only a guide to help locate code and documentation related to pvDatabaseJava
+<p>This document is only a guide to help locate code and documentation related to pvaClientJava
 </p>
 <p>
-It is intended for developers that want to use pvDatabaseJava.
+It is intended for developers that want to use pvaClientJava.
 </p>
 <h2>Developer Guide</h2>
 <p>A guide for developers is available at
@@ -85,9 +89,9 @@ href="http://epics-pvdata.sourceforge.net/informative/developerGuide/developerGu
 developerGuide
 </a>
 </p>
-<p>This guide discusses all the components that are part of an <b>EPICS V4</b> release.
+<p>This guide discusses all the PVA components that are part of an <b>EPICS V7</b> release.
 Some understanding of the components and how they are related is necessary in order to
-develop code that uses pvDatabaseJava.
+develop code that uses pvaClientJava.
 In particular read everything related to pvaClient.
 </p>
 <p>The developerGuide discusses code in a way that applies to both Java and C++.
@@ -101,12 +105,10 @@ href="../target/apidocs/index.html">javaDoc</a>
 </p>
 
 <h2>exampleJava</h2>
-<p>Example code is available as part of this release.
-<a
-href="http://epics-pvdata.sourceforge.net/docbuild/exampleJava/tip/documentation/exampleJava.html">
-exampleJava
-</a>
-</p>
+<p>Example code is available from github:</p>
+<pre>
+git clone https://github.com/mrkraimer/exampleJava.git
+</pre>
 <p>In particular look at exampleClient.
 It has many examples of using pvaClientJava.
 </p>

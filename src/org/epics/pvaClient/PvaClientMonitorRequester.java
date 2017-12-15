@@ -6,18 +6,33 @@
 
 package org.epics.pvaClient;
 
+import org.epics.pvdata.pv.Status;
+import org.epics.pvdata.pv.Structure;
+
 
 /**
- * Interface for a PvaClientMonitorRequester.
+ * Optional callback for PvaClientMonitor.
  * @author mrk
  * @since 2017.07
  */
 
 public interface PvaClientMonitorRequester {
-
+    /** 
+     * The server has returned a message that the monitor is connected.
+     *
+     * @param status Completion status.
+     * @param pvaClientMonitor The pvaClientMonitor
+     * @param structure The structure defining the data.
+     */
+    public void monitorConnect(Status status,PvaClientMonitor pvaClientMonitor,Structure structure);
     /**
      * A monitor event has occurred.
-     * @param monitor The PvaClientMonitor that trapped the event.
+     * @param pvaClientMonitor The PvaClientMonitor that trapped the event.
      */
-    public void event(PvaClientMonitor monitor);
+    public void event(PvaClientMonitor pvaClientMonitor);
+    /**
+     * The data source is no longer available.
+     * @param pvaClientMonitor The PvaClientMonitor that trapped the event.
+     */
+    public void unlisten(PvaClientMonitor pvaClientMonitor);
 }
