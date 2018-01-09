@@ -157,7 +157,12 @@ public class PvaClientMonitorData {
             } else {
                 pvField = pvStructure.getSubField(nextSet);
             }
-            result += pvField.getFullName() + " = " + pvField + "\n";
+            String fullName = pvField.getFullName();
+            if(fullName==null) {
+                result += pvField + "\n";
+            } else {
+                result += fullName + " = " + pvField + "\n";
+            }
             nextSet = changedBitSet.nextSetBit(nextSet + 1);
         }
         return result;
