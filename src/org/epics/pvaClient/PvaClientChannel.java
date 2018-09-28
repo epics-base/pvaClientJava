@@ -257,6 +257,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
             isDestroyed = true;
         }
         if(channel!=null) {
+            channel.destroy();
             channel=null;
         }
         if(PvaClient.getDebug()) showCache();
