@@ -16,6 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.epics.pvaccess.client.Channel;
 import org.epics.pvaccess.client.ChannelRPC;
 import org.epics.pvaccess.client.ChannelRPCRequester;
+import org.epics.pvaccess.server.rpc.RPCRequestException;
 import org.epics.pvdata.factory.StatusFactory;
 import org.epics.pvdata.pv.MessageType;
 import org.epics.pvdata.pv.PVStructure;
@@ -83,6 +84,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
 
     private volatile boolean isDestroyed = false;
     private volatile ChannelRPC channelRPC = null;
+    private Status status = null;
     private PVStructure pvResponse = null;
     
     private enum RPCState {rpcIdle,rpcActive,rpcComplete};
@@ -165,7 +167,10 @@ public class PvaClientRPC implements ChannelRPCRequester{
                 rpcState = RPCState.rpcIdle;
             } else {
                 rpcState = RPCState.rpcComplete;
-                if(pvaClientRPCRequester==null) this.pvResponse = pvResponse;
+                if(pvaClientRPCRequester==null) {
+                    this.status = status;
+                    this.pvResponse = pvResponse;
+                }
                 waitForDone.signal();
             }
         } finally {
@@ -277,6 +282,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
      * @return The result.
      */
     public PVStructure request(PVStructure pvArgument)
+            throws RPCRequestException
     {
         checkRPCState();
         if(rpcState!=RPCState.rpcIdle) {
@@ -315,7 +321,14 @@ public class PvaClientRPC implements ChannelRPCRequester{
                 }
             }
             rpcState = RPCState.rpcIdle;
-            return pvResponse;
+            if (status.isSuccess()) {
+                return pvResponse;
+            } else {
+                if (status.getStackDump() == null)
+                    throw new RPCRequestException(status.getType(), status.getMessage());
+                else
+                    throw new RPCRequestException(status.getType(), status.getMessage() + ", cause:\n" + status.getStackDump());
+            }
         } finally {
             lock.unlock();
         }  
@@ -332,6 +345,7 @@ public class PvaClientRPC implements ChannelRPCRequester{
     public void request(
         PVStructure pvArgument,
         PvaClientRPCRequester pvaClientRPCRequester)
+                throws RPCRequestException
     {
         this.pvaClientRPCRequester = pvaClientRPCRequester;
         checkRPCState();
