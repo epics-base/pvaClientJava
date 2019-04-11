@@ -16,6 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.epics.pvaccess.client.Channel;
 import org.epics.pvaccess.client.Channel.ConnectionState;
+import org.epics.pvaccess.server.rpc.RPCRequestException;
 import org.epics.pvaccess.client.ChannelProvider;
 import org.epics.pvaccess.client.ChannelProviderRegistryFactory;
 import org.epics.pvaccess.client.ChannelRequester;
@@ -262,7 +263,8 @@ public class PvaClientChannel implements ChannelRequester,Requester{
             isDestroyed = true;
         }
         if(channel!=null) {
-            channel.destroy();
+System.out.println("skip calling destroy");
+//            channel.destroy();
             channel=null;
         }
         if(PvaClient.getDebug()) showCache();
@@ -789,6 +791,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
     public PVStructure rpc(
             PVStructure pvRequest,
             PVStructure pvArgument)
+                    throws RPCRequestException
     {
         PvaClientRPC rpc = createRPC(pvRequest);
         return rpc.request(pvArgument);
@@ -799,6 +802,7 @@ public class PvaClientChannel implements ChannelRequester,Requester{
      */
     public PVStructure rpc(
             PVStructure pvArgument)
+                    throws RPCRequestException
     {
         PvaClientRPC rpc = createRPC();
         return rpc.request(pvArgument);
